@@ -1,7 +1,4 @@
-# -*- mode:python -*-
-
-# Copyright (c) 2006 The Regents of The University of Michigan
-# All rights reserved.
+# Copyright 2021 Google, Inc.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are
@@ -26,26 +23,6 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-Import('*')
+from m5.objects.RiscvCPU import RiscvNemuCPU
 
-if env['CONF']['TARGET_ISA'] != 'null':
-    SimObject('BaseAtomicSimpleCPU.py', sim_objects=['BaseAtomicSimpleCPU'])
-    Source('atomic.cc')
-
-    # The NonCachingSimpleCPU is really an atomic CPU in
-    # disguise. It's therefore always enabled when the atomic CPU is
-    # enabled.
-    SimObject('BaseNonCachingSimpleCPU.py',
-            sim_objects=['BaseNonCachingSimpleCPU'])
-    Source('noncaching.cc')
-
-    SimObject('BaseTimingSimpleCPU.py', sim_objects=['BaseTimingSimpleCPU'])
-    Source('timing.cc')
-
-    SimObject('BaseNemuCPU.py', sim_objects=['BaseNemuCPU'])
-    Source('nemu.cc')
-
-    DebugFlag('SimpleCPU')
-
-    Source('base.cc')
-    SimObject('BaseSimpleCPU.py', sim_objects=['BaseSimpleCPU'])
+NemuCPU = RiscvNemuCPU

@@ -1,6 +1,16 @@
-# -*- mode:python -*-
-
-# Copyright (c) 2006 The Regents of The University of Michigan
+# Copyright (c) 2012 ARM Limited
+# All rights reserved.
+#
+# The license below extends only to copyright in the software and shall
+# not be construed as granting a license to any other intellectual
+# property including but not limited to intellectual property relating
+# to a hardware implementation of the functionality of the software
+# licensed hereunder.  You may use the software subject to the license
+# terms below provided that you ensure that this notice is replicated
+# unmodified and in its entirety in all distributions of the software,
+# modified or unmodified, in source code or in binary form.
+#
+# Copyright (c) 2007 The Regents of The University of Michigan
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -26,26 +36,12 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-Import('*')
+from m5.objects.BaseSimpleCPU import BaseSimpleCPU
+from m5.objects.SimPoint import SimPoint
+from m5.params import *
 
-if env['CONF']['TARGET_ISA'] != 'null':
-    SimObject('BaseAtomicSimpleCPU.py', sim_objects=['BaseAtomicSimpleCPU'])
-    Source('atomic.cc')
 
-    # The NonCachingSimpleCPU is really an atomic CPU in
-    # disguise. It's therefore always enabled when the atomic CPU is
-    # enabled.
-    SimObject('BaseNonCachingSimpleCPU.py',
-            sim_objects=['BaseNonCachingSimpleCPU'])
-    Source('noncaching.cc')
-
-    SimObject('BaseTimingSimpleCPU.py', sim_objects=['BaseTimingSimpleCPU'])
-    Source('timing.cc')
-
-    SimObject('BaseNemuCPU.py', sim_objects=['BaseNemuCPU'])
-    Source('nemu.cc')
-
-    DebugFlag('SimpleCPU')
-
-    Source('base.cc')
-    SimObject('BaseSimpleCPU.py', sim_objects=['BaseSimpleCPU'])
+class BaseNemuCPU(BaseSimpleCPU):
+    type = "BaseNemuCPU"
+    cxx_header = "cpu/simple/nemu.hh"
+    cxx_class = "gem5::NemuCPU"
