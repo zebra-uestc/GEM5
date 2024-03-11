@@ -70,8 +70,8 @@ class NemuCPU : public BaseSimpleCPU
   protected:
     EventFunctionWrapper tickEvent;
     void tick();
-
-    Tick sendPacket(RequestPort &port, const PacketPtr &pkt);
+    void sendFunctionalPacket(RequestPort& port, const PacketPtr& pkt);
+    Tick sendAtomicPacket(RequestPort &port, const PacketPtr &pkt);
 
   public:
 
@@ -115,9 +115,13 @@ class NemuCPU : public BaseSimpleCPU
 
 
   public:
-    Addr fetch(Addr addr, int len);
-    Addr read(Addr addr, int len);
-    void write(Addr addr, int len, Addr data);
+    Addr functionalFetch(Addr addr, int len);
+    Addr functionalRead(Addr addr, int len);
+    void functionalWrite(Addr addr, int len, Addr data);
+
+    Addr atomicFetch(Addr addr, int len);
+    Addr atomicRead(Addr addr, int len);
+    void atomicWrite(Addr addr, int len, Addr data);
 
     Fault
     initiateMemMgmtCmd(Request::Flags flags) override

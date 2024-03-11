@@ -113,8 +113,14 @@ NemuCPU::tick()
     return;
 }
 
+void
+NemuCPU::sendFunctionalPacket(RequestPort& port, const PacketPtr& pkt)
+{
+    port.sendFunctional(pkt);
+}
+
 Tick
-NemuCPU::sendPacket(RequestPort &port, const PacketPtr& pkt)
+NemuCPU::sendAtomicPacket(RequestPort &port, const PacketPtr& pkt)
 {
     return port.sendAtomic(pkt);
 }
@@ -139,7 +145,7 @@ NemuCPU::totalOps() const
 }
 
 Addr
-NemuCPU::fetch(Addr addr, int len)
+NemuCPU::functionalFetch(Addr addr, int len)
 {
     assert(len <= 8);
     uint8_t array[len];
@@ -154,7 +160,7 @@ NemuCPU::fetch(Addr addr, int len)
     Packet pkt(req, Packet::makeReadCmd(req));
     pkt.dataStatic(array);
 
-    sendPacket(icachePort, &pkt);
+    sendFunctionalPacket(icachePort, &pkt);
 
     panic_if(pkt.isError(), "Data fetch (%s) failed: %s",
              pkt.getAddrRange().to_string(), pkt.print());
@@ -165,7 +171,7 @@ NemuCPU::fetch(Addr addr, int len)
 }
 
 Addr
-NemuCPU::read(Addr addr, int len)
+NemuCPU::functionalRead(Addr addr, int len)
 {
     assert(len <= 8);
 
@@ -181,7 +187,7 @@ NemuCPU::read(Addr addr, int len)
     Packet pkt(req, Packet::makeReadCmd(req));
     pkt.dataStatic(array);
 
-    sendPacket(dcachePort, &pkt);
+    sendFunctionalPacket(dcachePort, &pkt);
 
     panic_if(pkt.isError(), "Data read (%s) failed: %s",
              pkt.getAddrRange().to_string(), pkt.print());
@@ -192,7 +198,7 @@ NemuCPU::read(Addr addr, int len)
 }
 
 void
-NemuCPU::write(Addr addr, int len, Addr data)
+NemuCPU::functionalWrite(Addr addr, int len, Addr data)
 {
     assert(len <= 8);
 
@@ -209,7 +215,88 @@ NemuCPU::write(Addr addr, int len, Addr data)
     Packet pkt(req, Packet::makeWriteCmd(req));
     pkt.dataStatic(array);
 
-    sendPacket(dcachePort, &pkt);
+    sendFunctionalPacket(dcachePort, &pkt);
+
+    panic_if(pkt.isError(), "Data write (%s) failed: %s",
+             pkt.getAddrRange().to_string(), pkt.print());
+
+    return;
+}
+
+
+
+Addr
+NemuCPU::atomicFetch(Addr addr, int len)
+{
+    assert(len <= 8);
+    uint8_t array[len];
+    std::memset(array, 0, len);
+
+    Request::Flags flags;
+    flags.set(Request::INST_FETCH | Request::PHYSICAL);
+    Request ifetch_req(addr, len, flags, _instRequestorId);
+    RequestPtr req = std::make_shared<Request>(ifetch_req);
+    req->taskId(taskId());
+
+    Packet pkt(req, Packet::makeReadCmd(req));
+    pkt.dataStatic(array);
+
+    sendAtomicPacket(icachePort, &pkt);
+
+    panic_if(pkt.isError(), "Data fetch (%s) failed: %s",
+             pkt.getAddrRange().to_string(), pkt.print());
+
+    Addr result = array_to_uint64(array, len);
+
+    return result;
+}
+
+Addr
+NemuCPU::atomicRead(Addr addr, int len)
+{
+    assert(len <= 8);
+
+    uint8_t array[len];
+    std::memset(array, 0, len);
+
+    Request::Flags flags;
+    flags.set(Request::PHYSICAL);
+    Request data_read_req(addr, len, flags, _dataRequestorId);
+    RequestPtr req = std::make_shared<Request>(data_read_req);
+    req->taskId(taskId());
+
+    Packet pkt(req, Packet::makeReadCmd(req));
+    pkt.dataStatic(array);
+
+    sendAtomicPacket(dcachePort, &pkt);
+
+    panic_if(pkt.isError(), "Data read (%s) failed: %s",
+             pkt.getAddrRange().to_string(), pkt.print());
+
+    Addr result = array_to_uint64(array, len);
+
+    return result;
+}
+
+void
+NemuCPU::atomicWrite(Addr addr, int len, Addr data)
+{
+    assert(len <= 8);
+
+    uint8_t array[len];
+    std::memset(array, 0, len);
+    uint64_to_array(data, array, len);
+
+    Request::Flags flags;
+    flags.set(Request::PHYSICAL);
+    Request data_write_req(addr, len, flags, _dataRequestorId);
+    RequestPtr req = std::make_shared<Request>(data_write_req);
+    req->taskId(taskId());
+
+    Packet pkt(req, Packet::makeWriteCmd(req));
+    pkt.dataStatic(array);
+
+    sendAtomicPacket(dcachePort, &pkt);
 
     panic_if(pkt.isError(), "Data write (%s) failed: %s",
              pkt.getAddrRange().to_string(), pkt.print());
@@ -284,21 +371,21 @@ uint64_to_array(uint64_t value, uint8_t* array, int len)
 uint64_t
 gem5_fetch(uint64_t addr, int len)
 {
-    uint64_t data = nemu->fetch(addr, len);
+    uint64_t data = nemu->functionalFetch(addr, len);
     return data;
 }
 
 uint64_t
 gem5_read(uint64_t addr, int len)
 {
-    uint64_t data = nemu->read(addr, len);
+    uint64_t data = nemu->functionalRead(addr, len);
     return data;
 }
 
 void
 gem5_write(uint64_t addr, int len, uint64_t data)
 {
-    return nemu->write(addr, len, data);
+    return nemu->functionalWrite(addr, len, data);
 }
 
 }
