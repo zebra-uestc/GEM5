@@ -1,7 +1,16 @@
-# -*- mode:python -*-
-
-# Copyright (c) 2021 Huawei International
-# Copyright (c) 2022 EXAscale Performance SYStems (EXAPSYS)
+# Copyright (c) 2018 ARM Limited
+# All rights reserved.
+#
+# The license below extends only to copyright in the software and shall
+# not be construed as granting a license to any other intellectual
+# property including but not limited to intellectual property relating
+# to a hardware implementation of the functionality of the software
+# licensed hereunder.  You may use the software subject to the license
+# terms below provided that you ensure that this notice is replicated
+# unmodified and in its entirety in all distributions of the software,
+# modified or unmodified, in source code or in binary form.
+#
+# Copyright (c) 2005-2007 The Regents of The University of Michigan
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -27,37 +36,16 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-Import('*')
+from m5.params import *
+from m5.proxy import *
+from m5.util.fdthelper import *
+from m5.defines import buildEnv
 
-SimObject('HiFive.py', sim_objects=['HiFive', 'GenericRiscvPciHost'],
-          tags='riscv isa')
-SimObject('LupV.py', sim_objects=['LupV'], tags='riscv isa')
-SimObject('Clint.py', sim_objects=['Clint'], tags='riscv isa')
-SimObject('Lint.py', sim_objects=['Lint'], tags='riscv isa')
-SimObject('PlicDevice.py', sim_objects=['PlicIntDevice'], tags='riscv isa')
-SimObject('Plic.py', sim_objects=['Plic'], tags='riscv isa')
-SimObject('RTC.py', sim_objects=['RiscvRTC'], tags='riscv isa')
-SimObject('RiscvVirtIOMMIO.py', sim_objects=['RiscvMmioVirtIO'],
-    tags='riscv isa')
-SimObject('NemuMMC.py', sim_objects=['NemuMMC'], tags='riscv isa')
-SimObject('GCPT.py', sim_objects=['GCPT'], tags='riscv isa')
+from m5.objects.Device import BasicPioDevice
 
-DebugFlag('Clint', tags='riscv isa')
-DebugFlag('Lint', tags='riscv isa')
-DebugFlag('Plic', tags='riscv isa')
-DebugFlag('VirtIOMMIO', tags='riscv isa')
-DebugFlag('NemuMMC', tags='riscv isa')
-
-Source('pci_host.cc', tags='riscv isa')
-
-Source('hifive.cc', tags='riscv isa')
-Source('lupv.cc', tags='riscv isa')
-Source('clint.cc', tags='riscv isa')
-Source('lint.cc', tags='riscv isa')
-Source('plic_device.cc', tags='riscv isa')
-Source('plic.cc', tags='riscv isa')
-Source('rtc.cc', tags='riscv isa')
-Source('vio_mmio.cc', tags='riscv isa')
-Source('nemu_mmc.cc', tags='riscv isa')
-Source('gcpt.cc', tags='riscv isa')
-
+class GCPT(BasicPioDevice):
+    type = 'GCPT'
+    cxx_header = "dev/serial/gcpt.hh"
+    cxx_class = 'gem5::GCPT'
+    pio_addr = 0x60000000
+    pio_size = Param.Addr(0x8000000, "Size of address range")
