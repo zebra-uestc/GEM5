@@ -117,7 +117,7 @@ function run() {
     ######## Some additional args:
     $gem5 $debug_flag_args $start_end \
         $gem5_home/configs/example/fs.py \
-        --xiangshan-system --cpu-type=NemuCPU \
+        --xiangshan-system --cpu-type=O3CPU \
         --mem-size=8GB \
         --caches --cacheline_size=64 \
         --l1i_size=64kB --l1i_assoc=8 \
@@ -216,7 +216,7 @@ function single_run() {
 
 
     # debug_gz=/nfs-nvme/home/share/checkpoints_profiles/spec06_rv64gcb_o2_20m/take_cpt/mcf_191500000000_0.105600/0/_191500000000_.gz
-    debug_gz=/home/sachi/workloads/demo.bin
+    debug_gz=/home/sachi/workloads/checkpoints/bzip2_696.gz
     # rm -f $work_dir/completed
     # rm -f $work_dir/abort
     rm -rf $work_dir

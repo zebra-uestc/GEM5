@@ -45,7 +45,7 @@ from m5.objects.Device import BasicPioDevice
 
 class GCPT(BasicPioDevice):
     type = 'GCPT'
-    cxx_header = "dev/serial/gcpt.hh"
+    cxx_header = "dev/riscv/gcpt.hh"
     cxx_class = 'gem5::GCPT'
     pio_addr = 0x60000000
     pio_size = Param.Addr(0x8000000, "Size of address range")
