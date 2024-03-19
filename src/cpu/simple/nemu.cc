@@ -62,6 +62,7 @@ namespace gem5
 
 NemuCPU::NemuCPU(const BaseNemuCPUParams &p)
     : BaseSimpleCPU(p),
+    maxInsts(p.max_insts_any_thread),
     tickEvent([this]{tick(); }, "NemuCPU tick", false, Event::CPU_Tick_Pri),
     icachePort(name() + ".icache_port", this),
     dcachePort(name() + ".dcache_port", this)
@@ -98,17 +99,23 @@ NemuCPU::startup()
 void
 NemuCPU::tick()
 {
-    int res = cpu_execute(1);
-    if (res <= 0) {
+    int ret = cpu_execute(1);
+    if (ret <= 0) {
       dlclose(lib);
-      if (res == 0) {
+      if (ret == 0) {
         exitSimLoop("exitSimLoop: nemu_trap ==> NEMU_END", 0);
-      } else {
+      } else if (ret == -1) {
         exitSimLoop("exitSimLoop: nemu_trap ==> NEMU_ABORT", 1);
+      } else {
+        printf("exit ret value ==> %d\n", ret);
+        exitSimLoop("God knows it",2);
       }
       return;
     }
-    instCnt += res;
+    instCnt = ret;
+    if (instCnt >= maxInsts) {
+      exitSimLoop("exitSimLoop: NemuCPU ==> reached the max instruction count", 0);
+    }
     reschedule(tickEvent, curTick() + clockPeriod(), true);
     return;
 }
@@ -123,13 +130,6 @@ Tick
 NemuCPU::sendAtomicPacket(RequestPort &port, const PacketPtr& pkt)
 {
     return port.sendAtomic(pkt);
-}
-
-void
-NemuCPU::wakeup(ThreadID tid)
-{
-    panic("NemuCPU doesn't need to wake up a thread!");
-    return;
 }
 
 Counter
@@ -385,7 +385,8 @@ gem5_read(uint64_t addr, int len)
 void
 gem5_write(uint64_t addr, int len, uint64_t data)
 {
-    return nemu->functionalWrite(addr, len, data);
+    nemu->functionalWrite(addr, len, data);
+    return;
 }
 
 }

@@ -68,14 +68,13 @@ class NemuCPU : public BaseSimpleCPU
     void startup() override;
 
   protected:
+    Addr maxInsts;
     EventFunctionWrapper tickEvent;
     void tick();
     void sendFunctionalPacket(RequestPort& port, const PacketPtr& pkt);
     Tick sendAtomicPacket(RequestPort &port, const PacketPtr &pkt);
 
   public:
-
-    void wakeup(ThreadID tid) override;
 
     Counter totalInsts() const override;
 
