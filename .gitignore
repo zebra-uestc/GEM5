@@ -43,6 +43,6 @@ configs/dram/lowp_sweep.cfg
 .cache
 compile_commands.json
 nemu.so
-simple-gem5.sh
+simple_gem5.sh
 output
 mem_trace.db

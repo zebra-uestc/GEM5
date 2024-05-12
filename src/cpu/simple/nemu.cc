@@ -307,7 +307,7 @@ NemuCPU::atomicWrite(Addr addr, int len, Addr data)
 void
 load_nemu_so()
 {
-    const char *filename = "/home/sachi/xs-gem5/nemu.so";
+    const char *filename = "/home/sachi/xs/gem5/nemu.so";
     lib = dlopen(filename, RTLD_NOW);
     if (!lib) {
       printf("load dlopen(%s): %s\n", filename, dlerror());
