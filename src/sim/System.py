@@ -139,3 +139,7 @@ class System(SimObject):
     arch_db = Param.ArchDBer(NULL,"arch db for this system")
 
     enable_riscv_vector = Param.Bool(False, "Enable riscv vector extension")
+
+    interval_enable = Param.Bool(False, "Enable trace interval cycles")
+    interval_size = Param.UInt64(20000000, "instructions per interval")
+    interval_cycle_file_path = Param.String("", "where to store cycles cost per interval")

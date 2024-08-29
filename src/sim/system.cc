@@ -42,6 +42,7 @@
 #include "sim/system.hh"
 
 #include <algorithm>
+#include <fstream>
 
 #include "base/compiler.hh"
 #include "base/cprintf.hh"
@@ -194,7 +195,14 @@ System::System(const Params &p)
                  RangeSize(p.m5ops_base, 0x10000) :
                  AddrRange(1, 0)), // Create an empty range if disabled
       redirectPaths(p.redirect_paths),
-      xiangshanSystem(p.xiangshan_system)
+      xiangshanSystem(p.xiangshan_system),
+      intervalEnable(p.interval_enable),
+      intervalSize(p.interval_size),
+      intervalCount(0),
+      intervalDrift(0),
+      lastIntervalInst(0),
+      lastIntervalCycle(0),
+      intervalCycleFilePath(p.interval_cycle_file_path)
 {
     panic_if(!workload, "No workload set for system %s "
             "(could use StubWorkload?).", name());
@@ -224,10 +232,20 @@ System::System(const Params &p)
     // Set back pointers to the system in all memories
     for (int x = 0; x < params().memories.size(); x++)
         params().memories[x]->system(this);
+
+    if (intervalEnable) {
+        intervalCycleStream = std::ofstream(intervalCycleFilePath);
+        if (intervalCycleStream.is_open()) {
+            std::cout << "Create interval cycle output stream from " << intervalCycleFilePath << std::endl;
+        } else {
+            std::cerr << "Can't create interval cycle output stream: file pat==>" << intervalCycleFilePath << std::endl;
+        }
+    }
 }
 
 System::~System()
 {
+    intervalCycleStream.close();
     for (uint32_t j = 0; j < numWorkIds; j++)
         delete workItemStats[j];
 }

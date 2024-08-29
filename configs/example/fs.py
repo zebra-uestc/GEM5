@@ -63,6 +63,7 @@ from common import ObjectList
 from common.Caches import *
 from common import Options
 
+
 def cmd_line_template():
     if args.command_line and args.command_line_file:
         print("Error: --command-line and --command-line-file are "
@@ -74,6 +75,7 @@ def cmd_line_template():
         return open(args.command_line_file).read().strip()
     return None
 
+
 def build_test_system(np):
     cmdline = cmd_line_template()
     if buildEnv['TARGET_ISA'] == "mips":
@@ -82,15 +84,12 @@ def build_test_system(np):
         test_sys = makeSparcSystem(test_mem_mode, bm[0], cmdline=cmdline)
     elif buildEnv['TARGET_ISA'] == "riscv":
         if args.xiangshan_system:
-            test_sys = makeBareMetalXiangshanSystem(test_mem_mode, bm[0],
-                                                    cmdline=cmdline)
+            test_sys = makeBareMetalXiangshanSystem(test_mem_mode, bm[0], cmdline=cmdline)
             test_sys.xiangshan_system = True
         else:
-            test_sys = makeBareMetalRiscvSystem(test_mem_mode, bm[0],
-                                                cmdline=cmdline)
+            test_sys = makeBareMetalRiscvSystem(test_mem_mode, bm[0], cmdline=cmdline)
     elif buildEnv['TARGET_ISA'] == "x86":
-        test_sys = makeLinuxX86System(test_mem_mode, np, bm[0], args.ruby,
-                                      cmdline=cmdline)
+        test_sys = makeLinuxX86System(test_mem_mode, np, bm[0], args.ruby, cmdline=cmdline)
     elif buildEnv['TARGET_ISA'] == "arm":
         test_sys = makeArmSystem(
             test_mem_mode,
@@ -114,22 +113,19 @@ def build_test_system(np):
     test_sys.cache_line_size = args.cacheline_size
 
     # Create a top-level voltage domain
-    test_sys.voltage_domain = VoltageDomain(voltage = args.sys_voltage)
+    test_sys.voltage_domain = VoltageDomain(voltage=args.sys_voltage)
 
     # Create a source clock for the system and set the clock period
-    test_sys.clk_domain = SrcClockDomain(clock =  args.sys_clock,
-            voltage_domain = test_sys.voltage_domain)
+    test_sys.clk_domain = SrcClockDomain(clock=args.sys_clock, voltage_domain=test_sys.voltage_domain)
 
     # Create a CPU voltage domain
     test_sys.cpu_voltage_domain = VoltageDomain()
 
     # Create a source clock for the CPUs and set the clock period
-    test_sys.cpu_clk_domain = SrcClockDomain(clock = args.cpu_clock,
-                                             voltage_domain =
-                                             test_sys.cpu_voltage_domain)
+    test_sys.cpu_clk_domain = SrcClockDomain(clock=args.cpu_clock, voltage_domain=test_sys.cpu_voltage_domain)
 
     if buildEnv['TARGET_ISA'] == 'riscv':
-        if args.generic_rv_cpt is not None :
+        if args.generic_rv_cpt is not None:
             test_sys.workload.bootloader = ''
             test_sys.workload.xiangshan_cpt = True
             if args.xiangshan_system and args.raw_cpt:
@@ -146,12 +142,10 @@ def build_test_system(np):
     test_sys.init_param = args.init_param
 
     # For now, assign all the CPUs to the same clock domain
-    test_sys.cpu = [TestCPUClass(clk_domain=test_sys.cpu_clk_domain, cpu_id=i)
-                    for i in range(np)]
+    test_sys.cpu = [TestCPUClass(clk_domain=test_sys.cpu_clk_domain, cpu_id=i) for i in range(np)]
     if args.xiangshan_system:
         for cpu in test_sys.cpu:
-            cpu.mmu.pma_checker = PMAChecker(
-                uncacheable=[AddrRange(0, size=0x80000000)])
+            cpu.mmu.pma_checker = PMAChecker(uncacheable=[AddrRange(0, size=0x80000000)])
     if args.enable_arch_db:
         test_sys.arch_db = ArchDBer(arch_db_file=args.arch_db_file)
         test_sys.arch_db.dump_from_start = args.arch_db_fromstart
@@ -241,12 +235,10 @@ def build_test_system(np):
 
     if args.ruby:
         bootmem = getattr(test_sys, '_bootmem', None)
-        Ruby.create_system(args, True, test_sys, test_sys.iobus,
-                           test_sys._dma_ports, bootmem)
+        Ruby.create_system(args, True, test_sys, test_sys.iobus, test_sys._dma_ports, bootmem)
 
         # Create a seperate clock domain for Ruby
-        test_sys.ruby.clk_domain = SrcClockDomain(clock = args.ruby_clock,
-                                        voltage_domain = test_sys.voltage_domain)
+        test_sys.ruby.clk_domain = SrcClockDomain(clock=args.ruby_clock, voltage_domain=test_sys.voltage_domain)
 
         # Connect the ruby io port to the PIO bus,
         # assuming that there is just one such port.
@@ -266,11 +258,11 @@ def build_test_system(np):
     else:
         if args.caches or args.l2cache:
             # By default the IOCache runs at the system clock
-            test_sys.iocache = IOCache(addr_ranges = test_sys.mem_ranges)
+            test_sys.iocache = IOCache(addr_ranges=test_sys.mem_ranges)
             test_sys.iocache.cpu_side = test_sys.iobus.mem_side_ports
             test_sys.iocache.mem_side = test_sys.membus.cpu_side_ports
         elif not args.external_memory_system:
-            test_sys.iobridge = Bridge(delay='50ns', ranges = test_sys.mem_ranges)
+            test_sys.iobridge = Bridge(delay='50ns', ranges=test_sys.mem_ranges)
             test_sys.iobridge.cpu_side_port = test_sys.iobus.mem_side_ports
             test_sys.iobridge.mem_side_port = test_sys.membus.cpu_side_ports
 
@@ -294,11 +286,10 @@ def build_test_system(np):
                     if (bpClass == ObjectList.bp_list.get('DecoupledStreamBPU')):
                         test_sys.cpu[i].branchPred.dump_loop_pred = args.dump_loop_pred
                 if args.indirect_bp_type:
-                    IndirectBPClass = ObjectList.indirect_bp_list.get(
-                        args.indirect_bp_type)
+                    IndirectBPClass = ObjectList.indirect_bp_list.get(args.indirect_bp_type)
                     test_sys.cpu[i].branchPred.indirectBranchPred = \
                         IndirectBPClass()
-                        
+
                 bpClass = ObjectList.bp_list.get('DecoupledBPUWithFTB')
                 print(args.enable_bp_db)
                 enable_bp_db = len(args.enable_bp_db) > 1
@@ -307,12 +298,10 @@ def build_test_system(np):
                 else:
                     bp_db_switches = []
                 if isinstance(test_sys.cpu[i].branchPred, bpClass):
-                    test_sys.cpu[i].branchPred = bpClass(
-                                                    bpDBSwitches=bp_db_switches,
-                                                    enableLoopBuffer=args.enable_loop_buffer,
-                                                    enableLoopPredictor=args.enable_loop_predictor,
-                                                    enableJumpAheadPredictor=args.enable_jump_ahead_predictor
-                                                    )
+                    test_sys.cpu[i].branchPred = bpClass(bpDBSwitches=bp_db_switches,
+                                                         enableLoopBuffer=args.enable_loop_buffer,
+                                                         enableLoopPredictor=args.enable_loop_predictor,
+                                                         enableJumpAheadPredictor=args.enable_jump_ahead_predictor)
                     print("db_switches:", bp_db_switches)
                 else:
                     if enable_bp_db:
@@ -323,7 +312,7 @@ def build_test_system(np):
                         print("loop predictor not supported for this branch predictor")
                     if args.enable_jump_ahead_predictor:
                         print("jump ahead predictor not supported for this branch predictor")
-                    assert(False)
+                    assert (False)
             test_sys.cpu[i].createThreads()
             print("Create threads for test sys cpu ({})".format(type(test_sys.cpu[i])))
 
@@ -354,7 +343,7 @@ def build_test_system(np):
         # Assign KVM CPUs to their own event queues / threads. This
         # has to be done after creating caches and other child objects
         # since these mustn't inherit the CPU event queue.
-        for i,cpu in enumerate(test_sys.cpu):
+        for i, cpu in enumerate(test_sys.cpu):
             # Child objects usually inherit the parent's event
             # queue. Override that and use the same event queue for
             # all devices.
@@ -373,7 +362,13 @@ def build_test_system(np):
             test_sys.cpu[i].dump_commit = False
             test_sys.cpu[i].dump_start = 0
 
+    if args.enable_interval_cycle:
+        test_sys.interval_enable = True
+        test_sys.interval_size = args.interval_size
+        test_sys.interval_cycle_file_path = args.interval_cycle_file_path
+
     return test_sys
+
 
 def build_drive_system(np):
     # driver system CPU is always simple, so is the memory
@@ -388,29 +383,23 @@ def build_drive_system(np):
     elif buildEnv['TARGET_ISA'] == 'sparc':
         drive_sys = makeSparcSystem(drive_mem_mode, bm[1], cmdline=cmdline)
     elif buildEnv['TARGET_ISA'] == 'x86':
-        drive_sys = makeLinuxX86System(drive_mem_mode, np, bm[1],
-                                       cmdline=cmdline)
+        drive_sys = makeLinuxX86System(drive_mem_mode, np, bm[1], cmdline=cmdline)
     elif buildEnv['TARGET_ISA'] == 'arm':
-        drive_sys = makeArmSystem(drive_mem_mode, args.machine_type, np,
-                                  bm[1], args.dtb_filename, cmdline=cmdline)
+        drive_sys = makeArmSystem(drive_mem_mode, args.machine_type, np, bm[1], args.dtb_filename, cmdline=cmdline)
 
     # Create a top-level voltage domain
-    drive_sys.voltage_domain = VoltageDomain(voltage = args.sys_voltage)
+    drive_sys.voltage_domain = VoltageDomain(voltage=args.sys_voltage)
 
     # Create a source clock for the system and set the clock period
-    drive_sys.clk_domain = SrcClockDomain(clock =  args.sys_clock,
-            voltage_domain = drive_sys.voltage_domain)
+    drive_sys.clk_domain = SrcClockDomain(clock=args.sys_clock, voltage_domain=drive_sys.voltage_domain)
 
     # Create a CPU voltage domain
     drive_sys.cpu_voltage_domain = VoltageDomain()
 
     # Create a source clock for the CPUs and set the clock period
-    drive_sys.cpu_clk_domain = SrcClockDomain(clock = args.cpu_clock,
-                                              voltage_domain =
-                                              drive_sys.cpu_voltage_domain)
+    drive_sys.cpu_clk_domain = SrcClockDomain(clock=args.cpu_clock, voltage_domain=drive_sys.cpu_voltage_domain)
 
-    drive_sys.cpu = DriveCPUClass(clk_domain=drive_sys.cpu_clk_domain,
-                                  cpu_id=0)
+    drive_sys.cpu = DriveCPUClass(clk_domain=drive_sys.cpu_clk_domain, cpu_id=0)
     drive_sys.cpu.createThreads()
     drive_sys.cpu.createInterruptController()
     drive_sys.cpu.connectBus(drive_sys.membus)
@@ -420,21 +409,20 @@ def build_drive_system(np):
     if ObjectList.is_kvm_cpu(DriveCPUClass):
         drive_sys.kvm_vm = KvmVM()
 
-    drive_sys.iobridge = Bridge(delay='50ns',
-                                ranges = drive_sys.mem_ranges)
+    drive_sys.iobridge = Bridge(delay='50ns', ranges=drive_sys.mem_ranges)
     drive_sys.iobridge.cpu_side_port = drive_sys.iobus.mem_side_ports
     drive_sys.iobridge.mem_side_port = drive_sys.membus.cpu_side_ports
 
     # Create the appropriate memory controllers and connect them to the
     # memory bus
-    drive_sys.mem_ctrls = [DriveMemClass(range = r)
-                           for r in drive_sys.mem_ranges]
+    drive_sys.mem_ctrls = [DriveMemClass(range=r) for r in drive_sys.mem_ranges]
     for i in range(len(drive_sys.mem_ctrls)):
         drive_sys.mem_ctrls[i].port = drive_sys.membus.mem_side_ports
 
     drive_sys.init_param = args.init_param
 
     return drive_sys
+
 
 # Add args
 parser = argparse.ArgumentParser()
@@ -463,21 +451,20 @@ if args.benchmark:
         sys.exit(1)
 else:
     if args.dual:
-        bm = [SysConfig(disks=args.disk_image, rootdev=args.root_device,
-                        mem=args.mem_size, os_type=args.os_type),
-              SysConfig(disks=args.disk_image, rootdev=args.root_device,
-                        mem=args.mem_size, os_type=args.os_type)]
+        bm = [
+            SysConfig(disks=args.disk_image, rootdev=args.root_device, mem=args.mem_size, os_type=args.os_type),
+            SysConfig(disks=args.disk_image, rootdev=args.root_device, mem=args.mem_size, os_type=args.os_type)
+        ]
     else:
-        bm = [SysConfig(disks=args.disk_image, rootdev=args.root_device,
-                        mem=args.mem_size, os_type=args.os_type)]
+        bm = [SysConfig(disks=args.disk_image, rootdev=args.root_device, mem=args.mem_size, os_type=args.os_type)]
 
 np = args.num_cpus
 
 test_sys = build_test_system(np)
 
 if args.generic_rv_cpt is not None:
-    assert(buildEnv['TARGET_ISA'] == "riscv")
-    assert(args.xiangshan_system)
+    assert (buildEnv['TARGET_ISA'] == "riscv")
+    assert (args.xiangshan_system)
     test_sys.restore_from_gcpt = True
     test_sys.gcpt_file = args.generic_rv_cpt
     test_sys.gcpt_restorer_file = args.gcpt_restorer
@@ -492,16 +479,9 @@ if len(bm) == 2:
     root = makeDualRoot(True, test_sys, drive_sys, args.etherdump)
 elif len(bm) == 1 and args.dist:
     # This system is part of a dist-gem5 simulation
-    root = makeDistRoot(test_sys,
-                        args.dist_rank,
-                        args.dist_size,
-                        args.dist_server_name,
-                        args.dist_server_port,
-                        args.dist_sync_repeat,
-                        args.dist_sync_start,
-                        args.ethernet_linkspeed,
-                        args.ethernet_linkdelay,
-                        args.etherdump);
+    root = makeDistRoot(test_sys, args.dist_rank, args.dist_size, args.dist_server_name, args.dist_server_port,
+                        args.dist_sync_repeat, args.dist_sync_start, args.ethernet_linkspeed, args.ethernet_linkdelay,
+                        args.etherdump)
 elif len(bm) == 1:
     root = Root(full_system=True, system=test_sys)
 else:
@@ -513,7 +493,7 @@ if ObjectList.is_kvm_cpu(TestCPUClass) or \
     # Required for running kvm on multiple host cores.
     # Uses gem5's parallel event queue feature
     # Note: The simulator is quite picky about this number!
-    root.sim_quantum = int(1e9) # 1 ms
+    root.sim_quantum = int(1e9)  # 1 ms
 
 if args.timesync:
     root.time_sync_enable = True
@@ -523,10 +503,7 @@ if args.frame_capture:
 
 if buildEnv['TARGET_ISA'] == "arm" and not args.bare_metal \
         and not args.dtb_filename:
-    if args.machine_type not in ["VExpress_GEM5",
-                                    "VExpress_GEM5_V1",
-                                    "VExpress_GEM5_V2",
-                                    "VExpress_GEM5_Foundation"]:
+    if args.machine_type not in ["VExpress_GEM5", "VExpress_GEM5_V1", "VExpress_GEM5_V2", "VExpress_GEM5_Foundation"]:
         warn("Can only correctly generate a dtb for VExpress_GEM5_* " \
              "platforms, unless custom hardware models have been equipped "\
              "with generation functionality.")

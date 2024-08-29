@@ -1269,6 +1269,21 @@ CPU::instDone(ThreadID tid, const DynInstPtr &inst)
             Stats::schedStatEvent(true, true, curTick(), 0);
             scheduleInstStop(tid,0,"Will trigger stat dump and reset");
         }
+
+        if (this->system->intervalEnable) {
+            Tick curInsts = totalInsts();
+            Cycles curCycles = curCycle();
+            this->system->intervalCount = curInsts - this->system->lastIntervalInst;
+            Tick sum = this->system->intervalCount + this->system->intervalDrift;
+            if (sum >= this->system->intervalSize) {
+                Tick cycleDelta = curCycles - this->system->lastIntervalCycle;
+                this->system->intervalCycleStream << cycleDelta << std::endl;
+                this->system->lastIntervalCycle = curCycles;
+                this->system->lastIntervalInst = curInsts;
+                this->system->intervalDrift = sum - this->system->intervalSize;
+                this->system->intervalCount = 0;
+            }
+        }
     }
 
     thread[tid]->numOp++;

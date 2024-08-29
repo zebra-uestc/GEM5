@@ -42,6 +42,7 @@
 #ifndef __SYSTEM_HH__
 #define __SYSTEM_HH__
 
+#include <fstream>
 #include <set>
 #include <string>
 #include <unordered_map>
@@ -51,6 +52,7 @@
 #include "base/loader/memory_image.hh"
 #include "base/loader/symtab.hh"
 #include "base/statistics.hh"
+#include "base/types.hh"
 #include "config/the_isa.hh"
 #include "cpu/pc_event.hh"
 #include "enums/MemoryMode.hh"
@@ -620,6 +622,18 @@ class System : public SimObject, public PCEventScope
     void initState() override;
 
     const bool xiangshanSystem;
+
+    // Trace cycles cost per interval
+    public:
+      bool intervalEnable;
+      Tick intervalSize;
+      Tick intervalCount;
+      Tick intervalDrift;
+      Tick lastIntervalInst;
+      Cycles lastIntervalCycle;
+      std::string intervalCycleFilePath;
+      std::ofstream intervalCycleStream;
+
 };
 
 void printSystems();
