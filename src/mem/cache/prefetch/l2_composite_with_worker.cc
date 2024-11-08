@@ -69,6 +69,12 @@ L2CompositeWithWorkerPrefetcher::notify(const PacketPtr &pkt, const PrefetchInfo
 }
 
 void
+L2CompositeWithWorkerPrefetcher::recvCustomInfoFrmUpStream(CustomPfInfo& info)
+{
+    cdp->recvCustomInfoFrmUpStream(info);
+}
+
+void
 L2CompositeWithWorkerPrefetcher::pfHitNotify(float accuracy, PrefetchSourceType pf_source, const PacketPtr &pkt)
 {
     cdp->pfHitNotify(accuracy, pf_source, pkt, addressGenBuffer);
