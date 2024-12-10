@@ -604,6 +604,27 @@ Decode::tick()
         updateStatus();
     }
 
+    ThreadID tid = *threads;
+    if (stalls[tid].rename) {
+        // stall from rename, pass rename stall
+        setAllStalls(fromRename->renameInfo[tid].blockReason);
+    } else if (toRenameIndex == 0) {
+        if (decodeStalls[0] != StallReason::NoStall) {
+            setAllStalls(decodeStalls[0]);
+        } else {
+            // warn("decode have other Stall Reason!");
+        }
+    } else {
+        // no stall from decode, pass fetch stall(no stall/FetchFragStall/fetch all stall)
+        for (int i = 0; i < decodeStalls.size(); i++) {
+            if (i < toRenameIndex) {    // decode success, no stall
+                decodeStalls.at(i) = StallReason::NoStall;
+            } else {    // no insts to decode, pass fetch frag stall
+                decodeStalls.at(i) = fromFetch->fetchStallReason.at(i);
+            }
+        }
+    }
+
     toRename->decodeStallReason = decodeStalls;
 
     if (wroteToTimeBuffer) {
@@ -862,19 +883,12 @@ Decode::decodeInsts(ThreadID tid)
         }
     }
 
-    for (int i = 0;i < decodeWidth;i++) {
-        if (i < toRenameIndex) {
-            decodeStalls.at(i) = StallReason::NoStall;
-        } else {
-            if (!decode_stalls.empty()) {
-                decodeStalls.at(i) = decode_stalls.front();
-                decode_stalls.pop();
-            } else if (breakDecode != StallReason::NoStall) {
-                decodeStalls.at(i) = breakDecode;
-            } else {
-                decodeStalls.at(i) = StallReason::NoStall;
-            }
-        }
+    // this stage is totally stalled, set all decode stalls
+    if (!decode_stalls.empty()) {
+        setAllStalls(decode_stalls.front());
+        decode_stalls.pop();
+    } else if (breakDecode != StallReason::NoStall) {
+        setAllStalls(breakDecode);
     }
 
     // If we didn't process all instructions, then we will need to block

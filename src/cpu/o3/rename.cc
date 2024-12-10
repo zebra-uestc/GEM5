@@ -435,6 +435,26 @@ Rename::tick()
         toDecode->renameInfo[tid].blockReason = blockReason;
     }
 
+    if (stalls[*threads].iew) {
+        setAllStalls(fromIEW->iewInfo[*threads].blockReason);
+    } else if (toIEWIndex == 0) {
+        if (renameStalls[0] != StallReason::NoStall) {
+            setAllStalls(renameStalls[0]);
+        } else {
+            // warn("rename have other stall reason!");
+        }
+    } else {
+        // no stall from rename, pass decode stall(no stall or decode stall)
+        // assert(renamed_insts != 0);
+        for (int i = 0; i < renameStalls.size(); i++) {
+            if (i < toIEWIndex) {
+                renameStalls.at(i) = StallReason::NoStall;
+            } else {
+                renameStalls.at(i) = fromDecode->decodeStallReason.at(i);
+            }
+        }
+    }
+
     toIEW->renameStallReason = renameStalls;
 
     if (status_change) {
@@ -818,31 +838,11 @@ Rename::renameInsts(ThreadID tid)
         --insts_available;
     }
 
-    StallReason stall = StallReason::NoStall;
-    for (auto iter : fromDecode->decodeStallReason) {
-        if (iter != StallReason::NoStall) {
-            stall = iter;
-            break;
-        }
-    }
-
-    for (int i = 0;i < renameWidth;i++) {
-        if (i < renamed_insts) {
-            renameStalls.at(i) = StallReason::NoStall;
-        } else {
-            if (!rename_stalls.empty()) {
-                renameStalls.at(i) = rename_stalls.front();
-                rename_stalls.pop();
-            } else if (breakRename != StallReason::NoStall) {
-                renameStalls.at(i) = breakRename;
-            } else if (instsAvailable < renameWidth && instsAvailable > 0) {
-                renameStalls.at(i) = StallReason::OtherFragStall;
-            } else if (instsAvailable == 0) {
-                renameStalls.at(i) = stall;
-            }else {
-                renameStalls.at(i) = StallReason::OtherStall;
-            }
-        }
+    if (!rename_stalls.empty()) {
+        setAllStalls(rename_stalls.front());
+        rename_stalls.pop();
+    } else if (breakRename != StallReason::NoStall) {
+        setAllStalls(breakRename);
     }
 
     instsInProgress[tid] += renamed_insts;
