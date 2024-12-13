@@ -72,9 +72,9 @@ namespace prefetch
 class CDP : public Queued
 {
 
-
     std::vector<bool> enable_prf_filter;
     std::vector<bool> enable_prf_filter2;
+    bool enableCoordinate;
     int depth_threshold;
     int degree;
     float throttle_aggressiveness;
@@ -392,7 +392,7 @@ class CDP : public Queued
             mpki = l3_miss_info.second * 1000.0 / ins_num;
         }
     }
-    void recvCustomInfoFrmUpStream(CustomPfInfo& info) {
+    void recvRivalCoverage(CustomPfInfo& info) {
         rivalCoverage = info.coverage;
     }
     bool sendPFWithFilter(Addr addr, std::vector<AddrPriority> &addresses, int prio, PrefetchSourceType pfSource,
@@ -424,8 +424,8 @@ class CDP : public Queued
 
     void insertFilterTable(Addr addr, bool useful);
     bool needFilter(Addr addr);
-    void prefetchUsed(Addr addr);
-    void prefetchUnused(Addr addr);
+    void recordUsedPrefetch(Addr addr);
+    void recordUnusedPrefetch(Addr addr);
 
     Addr filterTableAddr(Addr addr) {
         return addr >> filterEntryGranularityBits;
@@ -456,26 +456,28 @@ class CDP : public Queued
         float cdpCoverage = getCdpTrueCoverage();
         int throAction{0};
 
-        if (cdpCoverage >= Tcoverage) {
-            throAction = 0;
-            lowConf = false;
-        } else if (cdpAccuracy < Alow) {
-            throAction = 1;
-            lowConf = true;
-        } else if (cdpAccuracy < Ahigh) {
-            if (rivalCoverage >= RivalTcoverage) {
-                throAction = 2;
+        if (enableCoordinate) {
+            if (cdpCoverage >= Tcoverage) {
+                throAction = 0;
+                lowConf = false;
+            } else if (cdpAccuracy < Alow) {
+                throAction = 1;
                 lowConf = true;
-            } else {
-                throAction = 3;
-                lowConf = false;
-            }
-        } else if (cdpAccuracy >= Ahigh) {
-            if (rivalCoverage < RivalTcoverage) {
-                throAction = 4;
-                lowConf = false;
-            } else {
-                throAction = 5;
+            } else if (cdpAccuracy < Ahigh) {
+                if (rivalCoverage >= RivalTcoverage) {
+                    throAction = 2;
+                    lowConf = true;
+                } else {
+                    throAction = 3;
+                    lowConf = false;
+                }
+            } else if (cdpAccuracy >= Ahigh) {
+                if (rivalCoverage < RivalTcoverage) {
+                    throAction = 4;
+                    lowConf = false;
+                } else {
+                    throAction = 5;
+                }
             }
         }
         cdpStats.ThrottlingActionDist.sample(throAction);

@@ -32,7 +32,7 @@ L2CompositeWithWorkerPrefetcher::prefetchUnused(Addr paddr, PrefetchSourceType p
 {
     Base::prefetchUnused(pfSource);
     if (pfSource == PrefetchSourceType::CDP) {
-        cdp->prefetchUnused(paddr);
+        cdp->recordUnusedPrefetch(paddr);
     }
 }
 
@@ -97,7 +97,7 @@ L2CompositeWithWorkerPrefetcher::notify(const PacketPtr &pkt, const PrefetchInfo
 void
 L2CompositeWithWorkerPrefetcher::recvCustomInfoFrmUpStream(CustomPfInfo& info)
 {
-    cdp->recvCustomInfoFrmUpStream(info);
+    cdp->recvRivalCoverage(info);
 }
 
 void

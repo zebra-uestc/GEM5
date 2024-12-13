@@ -55,6 +55,7 @@ namespace prefetch
 {
 CDP::CDP(const CDPParams &p)
     : Queued(p),
+      enableCoordinate(p.enable_coordinate),
       depth_threshold(1),
       degree(3),
       throttle_aggressiveness(p.throttle_aggressiveness),
@@ -185,7 +186,7 @@ CDP::calculatePrefetch(const PrefetchInfo &pfi, std::vector<AddrPriority> &addre
         DPRINTF(CDPUseful, "Miss addr: %#llx\n", addr);
     }
     if (!is_l1_prefetch && !is_l2_prefetch) {
-        prefetchUsed(pfi.getPaddr());
+        recordUsedPrefetch(pfi.getPaddr());
         addToVpnTable(pfi.getAddr(), pf_hit_cdp);
     }
     return;
@@ -416,7 +417,7 @@ CDP::needFilter(Addr addr)
 }
 
 void
-CDP::prefetchUsed(Addr addr)
+CDP::recordUsedPrefetch(Addr addr)
 {
     // prefetch hit a cdp prefetched block
     // decrement the confidence of related region (+1)
@@ -426,7 +427,7 @@ CDP::prefetchUsed(Addr addr)
 }
 
 void
-CDP::prefetchUnused(Addr addr)
+CDP::recordUnusedPrefetch(Addr addr)
 {
     // cache evicts a cdp prefetched block
     // decrement the confidence of related region (-1)
