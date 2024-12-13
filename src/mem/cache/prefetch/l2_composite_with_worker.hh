@@ -26,6 +26,10 @@ class L2CompositeWithWorkerPrefetcher : public CompositeWithWorkerPrefetcher
     void calculatePrefetch(const PrefetchInfo &pfi, std::vector<AddrPriority> &addresses, bool late,
                            PrefetchSourceType source, bool miss_repeat) override;
 
+    void prefetchUnused(Addr paddr, PrefetchSourceType pfSource) override;
+
+    void addToQueue(std::list<DeferredPacket> &queue, DeferredPacket &dpp) override;
+
     void addHintDownStream(Base *down_stream) override
     {
         hintDownStream = down_stream;
