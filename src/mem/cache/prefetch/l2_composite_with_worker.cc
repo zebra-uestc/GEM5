@@ -40,8 +40,7 @@ void
 L2CompositeWithWorkerPrefetcher::addToQueue(std::list<DeferredPacket> &queue, DeferredPacket &dpp)
 {
     if (&queue == &pfq) {
-        // DPRINTF(CDPFilter, "addToQueue source: %#llx, vaddr: %#llx, paddr: %#llx\n",
-        // dpp.pkt->req->getXsMetadata().prefetchSource, dpp.pkt->getAddr(), dpp.pkt->req->getPaddr());
+        // Check whether the cdp prefetch request needs to be filtered out
         if (dpp.pkt->req->getXsMetadata().prefetchSource == PrefetchSourceType::CDP) {
             if (cdp->needFilter(dpp.pkt->req->getPaddr())) {
                 delete dpp.pkt;

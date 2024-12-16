@@ -99,7 +99,8 @@ class CDP : public Queued
               exist(false),
               hot(false)
         {}
-        void init(uint64_t _debug_vpn1, uint64_t _debug_vpn2, bool pf_hit_cdp) {
+        void init(uint64_t _debug_vpn1, uint64_t _debug_vpn2, bool pf_hit_cdp)
+        {
             if (pf_hit_cdp) {
                 refCnt = 4;
             } else {
@@ -111,7 +112,8 @@ class CDP : public Queued
             debug_vpn1 = _debug_vpn1;
             debug_vpn2 = _debug_vpn2;
         }
-        void discard() {
+        void discard()
+        {
             refCnt = 0;
             prevRefCnt = 0;
             hot = false;
@@ -119,14 +121,16 @@ class CDP : public Queued
             debug_vpn1 = 0;
             debug_vpn2 = 0;
         }
-        void access(bool pf_hit_cdp) {
+        void access(bool pf_hit_cdp)
+        {
             if (pf_hit_cdp) {
                 refCnt += 4;
             } else {
                 refCnt++;
             }
         }
-        void updateHot(bool low_conf) {
+        void updateHot(bool low_conf)
+        {
             if (low_conf) {
                 if (prevRefCnt > (resetPeriod / 16)) {
                     hot = true;
@@ -141,11 +145,13 @@ class CDP : public Queued
                 }
             }
         }
-        void decr(bool low_conf) {
+        void decr(bool low_conf)
+        {
             prevRefCnt = prevRefCnt == 0 ? 0 : (prevRefCnt - 1);
             updateHot(low_conf);
         }
-        void periodReset(float throttle_aggressiveness, bool enable_thro, bool low_conf) {
+        void periodReset(float throttle_aggressiveness, bool enable_thro, bool low_conf)
+        {
             if (enable_thro) {
                 prevRefCnt = throttle_aggressiveness * refCnt;
             } else {
@@ -179,23 +185,28 @@ class CDP : public Queued
             }
             subEntryBits = ceil(log2(subEntryNum));
         }
-        void discard() {
+        void discard()
+        {
             for (int i = 0; i < subEntryNum; i++) {
                 subEntries[i].discard();
             }
         }
-        void init(uint64_t vpn1, uint64_t vpn2, bool pf_hit_cdp) {
+        void init(uint64_t vpn1, uint64_t vpn2, bool pf_hit_cdp)
+        {
             uint64_t sub_idx = ((vpn2 << 9) | vpn1) & ((1UL << subEntryBits) - 1);
             assert(sub_idx < subEntryNum);
             subEntries[sub_idx].init(vpn1, vpn2, pf_hit_cdp);
         }
-        void access(uint64_t idx, bool pf_hit_cdp) {
+        void access(uint64_t idx, bool pf_hit_cdp)
+        {
             subEntries[idx].access(pf_hit_cdp);
         }
-        void decr(uint64_t idx, bool low_conf) {
+        void decr(uint64_t idx, bool low_conf)
+        {
             subEntries[idx].decr(low_conf);
         }
-        void periodReset(float throttle_aggressiveness, bool enable_thro, bool low_conf) {
+        void periodReset(float throttle_aggressiveness, bool enable_thro, bool low_conf)
+        {
             for (int i = 0; i < subEntryNum; i++) {
                 if (subEntries[i].getExist()) {
                     subEntries[i].periodReset(throttle_aggressiveness, enable_thro, low_conf);
@@ -232,7 +243,8 @@ class CDP : public Queued
                 assert(_subEntryNum % 2 == 0 && _subEntryNum < 512);
                 _subEntryBits = ceil(log2(_subEntryNum));
             }
-            void add(int vpn2, int vpn1, bool pf_hit_cdp) {
+            void add(int vpn2, int vpn1, bool pf_hit_cdp)
+            {
                 _resetCounter++;
                 Addr cat_addr = (vpn2 << 9) | vpn1;
                 uint64_t sub_idx = cat_addr & ((1UL << _subEntryBits) - 1);
@@ -337,32 +349,38 @@ class CDP : public Queued
                 bit_map.assign(size, SatCounter8{2, 2});
             }
 
-            void reset() {
+            void reset()
+            {
                 bit_map.assign(bit_map.size(), SatCounter8{2, 2});
             }
 
-            uint64_t getInnerAddr(Addr addr) const {
+            uint64_t getInnerAddr(Addr addr) const
+            {
                 // Note:
                 // addr is the `blockIndex(block address)`
                 return addr % bit_map.size();
             }
 
-            bool needFilter(Addr addr) const {
+            bool needFilter(Addr addr) const
+            {
                 uint64_t idx = getInnerAddr(addr);
                 return bit_map[idx].isSaturated();
             }
 
-            uint64_t getValue(Addr addr) {
+            uint64_t getValue(Addr addr)
+            {
                 uint64_t idx = getInnerAddr(addr);
                 return bit_map[idx].rawCounter();
             }
 
-            void setFilter(Addr addr) {
+            void setFilter(Addr addr)
+            {
                 uint64_t idx = getInnerAddr(addr);
                 bit_map[idx]++;
             }
 
-            void unSetFilter(Addr addr) {
+            void unSetFilter(Addr addr)
+            {
                 uint64_t idx = getInnerAddr(addr);
                 bit_map[idx]--;
             }
@@ -392,7 +410,8 @@ class CDP : public Queued
             mpki = l3_miss_info.second * 1000.0 / ins_num;
         }
     }
-    void recvRivalCoverage(CustomPfInfo& info) {
+    void recvRivalCoverage(CustomPfInfo& info)
+    {
         rivalCoverage = info.coverage;
     }
     bool sendPFWithFilter(Addr addr, std::vector<AddrPriority> &addresses, int prio, PrefetchSourceType pfSource,
@@ -427,11 +446,13 @@ class CDP : public Queued
     void recordUsedPrefetch(Addr addr);
     void recordUnusedPrefetch(Addr addr);
 
-    Addr filterTableAddr(Addr addr) {
+    Addr filterTableAddr(Addr addr)
+    {
         return addr >> filterEntryGranularityBits;
     }
 
-    float getCdpTrueAccuracy() const {
+    float getCdpTrueAccuracy() const
+    {
         float trueAccuracy = 1;
         if (prefetchStatsPtr->pfIssued_srcs[PrefetchSourceType::CDP].value() > 100) {
             trueAccuracy = (prefetchStatsPtr->pfUseful_srcs[PrefetchSourceType::CDP].value() * 1.0) /
@@ -440,7 +461,8 @@ class CDP : public Queued
         return trueAccuracy;
     }
 
-    float getCdpTrueCoverage() const {
+    float getCdpTrueCoverage() const
+    {
         float trueCoverage = 1;
         if (prefetchStatsPtr->pfUseful_srcs[PrefetchSourceType::CDP].value() > 100) {
             trueCoverage = (prefetchStatsPtr->pfUseful_srcs[PrefetchSourceType::CDP].value() * 1.0) /
@@ -450,7 +472,8 @@ class CDP : public Queued
         return trueCoverage;
     }
 
-    bool isLowConfidence() const {
+    bool isLowConfidence() const
+    {
         static bool lowConf{false};
         float cdpAccuracy = getCdpTrueAccuracy();
         float cdpCoverage = getCdpTrueCoverage();

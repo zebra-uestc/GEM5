@@ -482,7 +482,7 @@ class CDP(QueuedPrefetcher):
     on_write = False
     on_data  = True
     on_inst  = False
-    enable_coordinate = Param.Bool(True, "enable coordinate throttling or not")
+    enable_coordinate = Param.Bool(False, "enable coordinate throttling or not")
     use_byteorder = Param.Bool(True,"")
     vpn_sub_entries = Param.Unsigned(4,
         "Sub entry number of each of vpnEntry")
