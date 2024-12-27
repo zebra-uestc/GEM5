@@ -228,7 +228,9 @@ enum DiffAt
     ValueDiff,
 };
 
-extern const std::vector<uint64_t> skipCSRs;
+void skipPerfCntCsr();
+
+extern std::vector<uint64_t> skipCSRs;
 
 extern uint8_t *pmemStart;
 extern uint64_t pmemSize;
