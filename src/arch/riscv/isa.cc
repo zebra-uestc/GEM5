@@ -47,6 +47,7 @@
 #include "base/compiler.hh"
 #include "base/logging.hh"
 #include "base/trace.hh"
+#include "base/types.hh"
 #include "cpu/base.hh"
 #include "debug/Checkpoint.hh"
 #include "debug/FloatRegs.hh"
@@ -352,21 +353,21 @@ ISA::hpmCounterEnabled(int misc_reg) const
     int hpmcounter = misc_reg - MISCREG_CYCLE;
     if (hpmcounter < 0 || hpmcounter > 31)
         panic("Illegal HPM counter %d\n", hpmcounter);
-    int counteren;
+    RegVal counteren;
     switch (readMiscRegNoEffect(MISCREG_PRV)) {
       case PRV_M:
         return true;
       case PRV_S:
-        counteren = MISCREG_MCOUNTEREN;
+        counteren = miscRegFile[MISCREG_MCOUNTEREN];
         break;
       case PRV_U:
-        counteren = MISCREG_SCOUNTEREN;
+        counteren = miscRegFile[MISCREG_SCOUNTEREN] & miscRegFile[MISCREG_MCOUNTEREN];
         break;
       default:
         panic("Unknown privilege level %d\n", miscRegFile[MISCREG_PRV]);
         return false;
     }
-    return (miscRegFile[counteren] & (1ULL << (hpmcounter))) > 0;
+    return (counteren & (1ULL << (hpmcounter))) > 0;
 }
 
 RegVal
@@ -571,14 +572,6 @@ ISA::setMiscReg(int misc_reg, RegVal val)
         }
     } else if ((v == 1) && (misc_reg == MISCREG_SEPC)) {
         setMiscRegNoEffect(MISCREG_VSEPC, val);
-    } else if (misc_reg == MISCREG_HCOUNTEREN) {
-        auto hcounter = readMiscRegNoEffect(MISCREG_HCOUNTEREN);
-        RegVal write_val = ((hcounter & ~(NEMU_COUNTER_MASK)) | (val & NEMU_COUNTER_MASK));
-        setMiscRegNoEffect(MISCREG_HCOUNTEREN, write_val);
-    } else if (misc_reg == MISCREG_SCOUNTEREN) {
-        auto scounter = readMiscRegNoEffect(MISCREG_SCOUNTEREN);
-        RegVal write_val = ((scounter & ~(NEMU_COUNTER_MASK)) | (val & NEMU_COUNTER_MASK));
-        setMiscRegNoEffect(MISCREG_SCOUNTEREN, write_val);
     } else if ((v == 1) && ((misc_reg == MISCREG_STVEC))) {
         setMiscRegNoEffect(MISCREG_VSTVEC, val & ~(0x2UL));
     } else {
@@ -618,6 +611,16 @@ ISA::setMiscReg(int misc_reg, RegVal val)
                 }
 
                 setMiscRegNoEffect(misc_reg, val);
+            }
+            break;
+          case MISCREG_MCOUNTEREN:
+          case MISCREG_SCOUNTEREN:
+          case MISCREG_HCOUNTEREN:
+            {
+                auto xcounter = readMiscRegNoEffect(misc_reg);
+                // The lower 32 bits are writable
+                RegVal write_val = ((xcounter & ~(NEMU_COUNTER_MASK)) | (val & NEMU_COUNTER_MASK));
+                setMiscRegNoEffect(misc_reg, write_val);
             }
             break;
           case MISCREG_PMPADDR00 ... MISCREG_PMPADDR15:
