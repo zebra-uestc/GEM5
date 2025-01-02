@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <cstdlib>
 
+#include "arch/riscv/regs/misc.hh"
 #include "base/trace.hh"
 #include "cpu/nemu_common.hh"
 #include "debug/ValueCommit.hh"
@@ -34,10 +35,36 @@ const char *reg_name[] = {
     "v30",    "v31"
     };
 
-const std::vector<uint64_t> skipCSRs = {
-  0xb0200073,
-  0xb0000073
-};
+std::vector<uint64_t> skipCSRs;
+
+// CSR op Encoding:
+//     #12
+// | csrName | 0000 | 0000 | 0000 | 0111 | 0011 |
+#define GetCSROPInstCode(csrName) ((csrName << 20) | 0x73UL)
+
+void
+skipPerfCntCsr()
+{
+    skipCSRs.push_back(GetCSROPInstCode(gem5::RiscvISA::CSR_MCYCLE));
+    skipCSRs.push_back(GetCSROPInstCode(gem5::RiscvISA::CSR_MINSTRET));
+
+    for (uint64_t counter = gem5::RiscvISA::CSR_MMHPMCOUNTER3;
+                  counter <= gem5::RiscvISA::CSR_MMHPMCOUNTER31; counter++) {
+        skipCSRs.push_back(GetCSROPInstCode(counter));
+    }
+    for (uint64_t counter = gem5::RiscvISA::CSR_MHPMCOUNTER03;
+                  counter <= gem5::RiscvISA::CSR_MHPMCOUNTER31; counter++) {
+        skipCSRs.push_back(GetCSROPInstCode(counter));
+    }
+    for (uint64_t counter = gem5::RiscvISA::CSR_MMCOUNTINHIBIT;
+                  counter <= gem5::RiscvISA::CSR_MHPMEVENT31; counter++) {
+        skipCSRs.push_back(GetCSROPInstCode(counter));
+    }
+    for (uint64_t counter = gem5::RiscvISA::CSR_CYCLE;
+                  counter <= gem5::RiscvISA::CSR_HPMCOUNTER31; counter++) {
+        skipCSRs.push_back(GetCSROPInstCode(counter));
+    }
+}
 
 NemuProxy::NemuProxy(int coreid, const char *ref_so, bool enable_sdcard_diff, bool enable_mem_dedup, bool multi_core)
 {
@@ -99,6 +126,8 @@ NemuProxy::NemuProxy(int coreid, const char *ref_so, bool enable_sdcard_diff, bo
             handle, "difftest_sdcard_init");
         assert(sdcard_init);
     }
+
+    skipPerfCntCsr();
 
     auto nemu_init = (void (*)(void))dlsym(handle, "difftest_init");
     assert(nemu_init);
@@ -170,6 +199,8 @@ SpikeProxy::SpikeProxy(int coreid, const char *ref_so, bool enable_sdcard_diff)
     }
 
     assert(!enable_sdcard_diff);
+
+    skipPerfCntCsr();
 
     auto nemu_init = (void (*)(void))dlsym(handle, "difftest_init");
     assert(nemu_init);
