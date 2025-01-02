@@ -880,7 +880,7 @@ const uint64_t NEMU_SATP_MASK = NEMU_SATP_MODE_MASK |NEMU_SATP_ASID_MASK | NEMU_
 
 const uint64_t NEMU_SSTATUS_WMASK = ((1 << 19) | (1 << 18) | (0x3 << 13) | (1 << 8) | (1 << 5) | (1 << 1) |(0x3 <<9));
 const uint64_t NEMU_SSTATUS_RMASK = 0x80000003000de762UL;
-const uint64_t NEMU_COUNTER_MASK = 0;
+const uint64_t NEMU_COUNTER_MASK = 0xffffffffULL;
 
 const uint64_t NEMU_VS_MASK = ((1 << 10) | (1 << 6) | (1 << 2));
 const uint64_t NEMU_HS_MASK = ((1 << 12) | NEMU_VS_MASK);
