@@ -70,10 +70,6 @@ const Addr L2PageStoreTypeNum = 5;
 
 const Addr L2TLB_BLK_OFFSET = 3;
 const Addr VADDR_CHOOSE_MASK = 7;
-//const Addr L2TLB_L2_MASK = 0x1f;
-const Addr L2TLB_L2_MASK = 0x07;
-//const Addr L2TLB_L3_MASK = 0x7f;
-const Addr L2TLB_L3_MASK = 0x1f;
 const Addr l2tlbLineSize = 8;
 
 const Addr preHitOnHitLNum = 500;
