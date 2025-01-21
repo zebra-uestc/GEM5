@@ -1035,7 +1035,7 @@ LSQ::pushRequest(const DynInstPtr& inst, bool isLoad, uint8_t *data,
     inst->effSize = size;
 
     if (!isLoad && !inst->isVector() && size > 1 && addr % size != 0) {
-        warn( "Store misaligned: size: %u, Addr: %#lx, code: %d\n", size,
+         DPRINTF(LSQ, "Store misaligned: size: %u, Addr: %#lx, code: %d\n", size,
             addr, RiscvISA::ExceptionCode::STORE_ADDR_MISALIGNED);
         return std::make_shared<RiscvISA::AddressFault>(request->mainReq()->getVaddr(),
             request->mainReq()->getgPaddr(),
