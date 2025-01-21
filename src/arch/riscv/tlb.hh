@@ -71,6 +71,12 @@ class TLB : public BaseTLB
     size_t l2TlbL2Size;
     size_t l2TlbL3Size;
     size_t l2TlbSpSize;
+
+  public:
+    Addr L2TLB_L2_MASK;
+    Addr L2TLB_L3_MASK;
+
+  protected:
     uint64_t regulationNum;
     std::vector<TlbEntry> tlb;  // our TLB
     TlbEntryTrie trie;          // for quick access

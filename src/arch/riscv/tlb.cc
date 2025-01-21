@@ -82,6 +82,7 @@ TLB::TLB(const Params &p) :
     l2TlbL1Size(p.l2tlb_l1_size),
     l2TlbL2Size(p.l2tlb_l2_size),l2TlbL3Size(p.l2tlb_l3_size),
     l2TlbSpSize(p.l2tlb_sp_size),
+    L2TLB_L2_MASK(0),L2TLB_L3_MASK(0),
     regulationNum(p.regulation_num),
     tlb(size),lruSeq(0),hitInSp(false),
     hitPreEntry(0),hitPreNum(0),
@@ -101,6 +102,8 @@ TLB::TLB(const Params &p) :
     tlbL2L3(l2TlbL3Size *l2tlbLineSize),tlbL2Sp(l2TlbSpSize *l2tlbLineSize),
     forwardPre(forwardPreSize),backPre(32)
 {
+    L2TLB_L2_MASK = (((uint64_t)1) << static_cast<int>(std::log2(l2TlbL2Size / 2))) - 1;
+    L2TLB_L3_MASK = (((uint64_t)1) << static_cast<int>(std::log2(l2TlbL3Size / 4))) - 1;
 
     if (is_L1tlb) {
         DPRINTF(TLBVerbose, "tlb11\n");
