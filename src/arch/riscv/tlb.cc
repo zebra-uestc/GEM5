@@ -1984,8 +1984,6 @@ TLB::translate(const RequestPtr &req, ThreadContext *tc,
             req->setFlags(Request::PHYSICAL);
 
         Fault fault;
-        if (req->getVaddr() == 0)
-            warn("notice vaddr == 0 pc %lx \n", req->getPC());
 
         if (req->getFlags() & Request::PHYSICAL) {
             req->setTwoStageState(false, 0, 0);
