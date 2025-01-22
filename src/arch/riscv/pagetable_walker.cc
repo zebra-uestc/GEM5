@@ -706,6 +706,8 @@ Walker::WalkerState::twoStageStepWalk(PacketPtr &write)
                         }
 
                         else if (l2_level == 1) {
+                            inl2Entry.index =
+                                (gPaddr >> (LEVEL_BITS + PageShift + L2TLB_BLK_OFFSET)) & (walker->tlb->L2TLB_L2_MASK);
                             walker->tlb->L2TLBInsert(inl2Entry.gpaddr, inl2Entry, l2_level, L_L2sp2, l2_i, false,
                                                      gstage);
                         }  // hit level =1
@@ -917,11 +919,14 @@ Walker::WalkerState::twoStageWalk(PacketPtr &write)
                                 inl2Entry.pte = l2pte;
                                 inl2Entry.paddr = l2pte.ppn;
                                 if (l2_level == 0) {
-                                    inl2Entry.index =
-                                        (gPaddr >> (L2TLB_BLK_OFFSET + PageShift)) & walker->tlb->L2TLB_L3_MASK;
+                                    inl2Entry.index = (inl2Entry.vaddr >> (L2TLB_BLK_OFFSET + PageShift)) &
+                                                      walker->tlb->L2TLB_L3_MASK;
                                     walker->tlb->L2TLBInsert(inl2Entry.vaddr, inl2Entry, l2_level, L_L2L3, l2_i, false,
                                                              vsstage);
                                 } else if (l2_level == 1) {
+                                    inl2Entry.index =
+                                        (inl2Entry.vaddr >> (LEVEL_BITS + PageShift + L2TLB_BLK_OFFSET)) &
+                                        walker->tlb->L2TLB_L2_MASK;
                                     walker->tlb->L2TLBInsert(inl2Entry.vaddr, inl2Entry, l2_level, L_L2sp2, l2_i,
                                                              false, vsstage);
                                 } else if (l2_level == 2) {
@@ -1020,7 +1025,7 @@ Walker::WalkerState::twoStageWalk(PacketPtr &write)
                                 walker->tlb->L2TLBInsert(inl2Entry.vaddr, inl2Entry, l2_level, L_L2L1, l2_i, false,
                                                          vsstage);
                             } else if (l2_level == 1) {
-                                inl2Entry.index = (entry.vaddr >> (LEVEL_BITS + PageShift + L2TLB_BLK_OFFSET)) &
+                                inl2Entry.index = (inl2Entry.vaddr>> (LEVEL_BITS + PageShift + L2TLB_BLK_OFFSET)) &
                                                   (walker->tlb->L2TLB_L2_MASK);
                                 walker->tlb->L2TLBInsert(inl2Entry.vaddr, inl2Entry, l2_level, L_L2L2, l2_i, false,
                                                          vsstage);
@@ -1242,7 +1247,7 @@ Walker::WalkerState::stepWalk(PacketPtr &write)
                                                      direct);
                         }
                         if (l2_level == 1) {
-                            inl2Entry.index = (entry.vaddr >> (LEVEL_BITS + PageShift + L2TLB_BLK_OFFSET)) &
+                            inl2Entry.index = (inl2Entry.vaddr >> (LEVEL_BITS + PageShift + L2TLB_BLK_OFFSET)) &
                                               (walker->tlb->L2TLB_L2_MASK);
                             walker->tlb->L2TLBInsert(inl2Entry.vaddr, inl2Entry, l2_level, L_L2L2, l2_i, false,
                                                      direct);
