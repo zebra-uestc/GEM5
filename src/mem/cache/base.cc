@@ -48,6 +48,8 @@
 #include "base/compiler.hh"
 #include "base/logging.hh"
 #include "base/output.hh"
+#include "base/statistics.hh"
+#include "base/stats/group.hh"
 #include "base/trace.hh"
 #include "base/types.hh"
 #include "debug/ArchDB.hh"
@@ -206,6 +208,9 @@ BaseCache::BaseCache(const BaseCacheParams &p, unsigned blk_size)
         assert(popCount(sliceNum) == 1);
     }
 
+    for (int i = 0; i < getActualSliceNum(); i++) {
+        prevReqCycles.emplace_back(system->maxRequestors(), Cycles{0});
+    }
 
     if (dumpMissPC && cacheLevel) {
         registerExitCallback([this]() {
@@ -548,8 +553,24 @@ BaseCache::tryAccessTag(PacketPtr pkt)
 }
 
 void
+BaseCache::calReqInterval(PacketPtr pkt)
+{
+    RequestorID reqId = pkt->requestorId();
+    size_t sliceId = (getActualSliceNum() == 1) ? 0 : getSliceIdx(pkt->getAddr());
+    auto& prev = prevReqCycles[sliceId][reqId];
+    if (prev == 0) {
+        // first request
+        prev = curCycle();
+    } else {
+        (*stats.reqArriveInterval[sliceId])[reqId].sample(curCycle() - prev);
+        prev = curCycle();
+    }
+}
+
+void
 BaseCache::recvTimingReq(PacketPtr pkt)
 {
+    calReqInterval(pkt);
 
     if (pkt->isStorePFTrain()) {
         // send store prefetch train request
@@ -776,6 +797,8 @@ void
 BaseCache::recvTimingResp(PacketPtr pkt)
 {
     assert(pkt->isResponse());
+
+    stats.bytesRecv += pkt->getSize();
 
     // all header delay should be paid for by the crossbar, unless
     // this is a prefetch response from above
@@ -2764,8 +2787,12 @@ BaseCache::CacheStats::CacheStats(BaseCache &c)
     ADD_STAT(overallAvgMshrUncacheableLatency, statistics::units::Rate<
                 statistics::units::Tick, statistics::units::Count>::get(),
              "average overall mshr uncacheable latency"),
+    ADD_STAT(bytesRecvPerCycle, statistics::units::Ratio::get(),
+             "average bandwidth receiving data from lower cache."),
     ADD_STAT(replacements, statistics::units::Count::get(),
              "number of replacements"),
+    ADD_STAT(bytesRecv, statistics::units::Count::get(),
+             "number of bytes received from lower cache."),
     ADD_STAT(wayPreHitTimes, statistics::units::Count::get(),
              "number of wayPreHitTimes"),
     ADD_STAT(wayPreIndexHitTimes, statistics::units::Count::get(),
@@ -2807,6 +2834,19 @@ BaseCache::CacheStats::regStats()
 
     System *system = cache.system;
     const auto max_requestors = system->maxRequestors();
+
+    reqArriveInterval.resize(cache.getActualSliceNum());
+    for (int i = 0; i < reqArriveInterval.size(); i++) {
+        reqArriveInterval[i].reset(new statistics::VectorDistribution(this));
+        reqArriveInterval[i]
+        ->init(max_requestors, 0, 20, 1)
+            .name(csprintf("reqArriveInterval_Slice%d", i))
+            .desc("")
+            .flags(statistics::nozero);
+        for (int j = 0; j < max_requestors; j++) {
+            reqArriveInterval[i]->subname(j, system->getRequestorName(j));
+        }
+    }
 
     for (auto &cs : cmd)
         cs->regStatsFromParent();
@@ -3018,6 +3058,9 @@ BaseCache::CacheStats::regStats()
         overallAvgMshrUncacheableLatency.subname(i,
             system->getRequestorName(i));
     }
+
+    bytesRecvPerCycle.flags(total | nozero | nonan);
+    bytesRecvPerCycle = bytesRecv / simTicks * cache.clockPeriod();
 
     dataExpansions.flags(nozero | nonan);
     dataContractions.flags(nozero | nonan);
