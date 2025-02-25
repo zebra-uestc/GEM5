@@ -175,7 +175,7 @@ if __name__ == "__main__":
                         type=int,
                         default=333,
                         help='Number of ticks per clock cycle')
-    parser.add_argument('--platform', action='store',
+    parser.add_argument('-P', '--platform', action='store',
                         choices=['gem5', 'rtl'],
                         default='gem5',
                         help='Platform to analyze')
