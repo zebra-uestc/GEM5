@@ -144,20 +144,22 @@ def bbl_main(inst_info, inst_avg_clock_info, inter_gap, inner_gap):
             print()
 
 
-def perfcct_main(inst_info, inst_pos_clock_info, start_pc, end_pc, attention_pc: list[str]):
+def perfcct_main(inst_info, inst_pos_clock_info, start_pc, end_pc, attention_pc: list[str], only_attention: bool):
 
-    for i in len(inst_info):
-        pc, asm = inst_info[i]
+    for i, (pc, asm) in enumerate(inst_info):
         pos = inst_pos_clock_info[i]
 
-        if int(pc, 16) < int(start_pc, 16) \
-                or int(pc, 16) > int(end_pc, 16):
+        if not only_attention and \
+                (int(pc, 16) < int(start_pc, 16) or int(pc, 16) > int(end_pc, 16)):
+            continue
+
+        if only_attention and pc not in attention_pc:
             continue
 
         print(f"{pc:8}:{asm:25}:", end=' ')
 
-        for j in range(len(pos)):
-            print(f'{StageNameShort(j)}{pos[j]}', end=' ')
+        for j, pos_clock in enumerate(pos):
+            print(f'{StageNameShort[j]}{pos_clock}', end=' ')
 
         if pc in attention_pc:
             print("<<====", end=' ')
@@ -212,6 +214,9 @@ if __name__ == "__main__":
     parser.add_argument('--end-pc', action='store',
                         type=str,
                         default=0, help='End PC to analyze, a hex value start with 0x')
+    parser.add_argument('--only-attention', action='store_true',
+                        default=False,
+                        help='Only print attention PC')
 
     args = parser.parse_args()
 
@@ -225,6 +230,8 @@ if __name__ == "__main__":
         args.sqldb, args.start_tick, args.end_tick, args.period, args.inter_gap, args.inner_gap)
 
     if args.tool == 'perfcct':
-        perfcct_main(inst_info, inst_pos_clock_info, args.start_pc, args.end_pc, args.attention_pc)
+        perfcct_main(inst_info, inst_pos_clock_info,
+                     args.start_pc, args.end_pc,
+                     args.attention_pc, args.only_attention)
     elif args.tool == 'bbl':
         bbl_main(inst_info, inst_avg_clock_info, args.inter_gap, args.inner_gap)
