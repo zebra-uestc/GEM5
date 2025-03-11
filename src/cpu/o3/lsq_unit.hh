@@ -226,6 +226,10 @@ class LSQUnit
          */
         bool _isAllZeros = false;
 
+        bool _addrReady = false;
+
+        bool _dataReady = false;
+
       public:
         static constexpr size_t DataSize = sizeof(_data);
         /** Constructs an empty store queue entry. */
@@ -241,7 +245,14 @@ class LSQUnit
         {
             LSQEntry::clear();
             _canWB = _completed = _committed = _isAllZeros = false;
+            _addrReady = _dataReady = false;
         }
+
+        void setAddrAndDataReady(bool addrR, bool dataR);
+
+        bool addrReady() const { return _addrReady; }
+        bool dataReady() const { return _dataReady; }
+        bool splitStoreFinish() const { return _addrReady && _dataReady; }
 
         /** Member accessors. */
         /** @{ */
@@ -811,8 +822,12 @@ class LSQUnit
         /** Distribution of cycle latency between the first time a load
          * is issued and its completion */
         statistics::Distribution loadToUse;
-
         statistics::Distribution loadTranslationLat;
+
+
+        statistics::Scalar forwardSTDNotReady;
+        statistics::Scalar STAReadyFirst;
+        statistics::Scalar STDReadyFirst;
 
         statistics::Scalar nonUnitStrideCross16Byte;
         statistics::Scalar unitStrideCross16Byte;

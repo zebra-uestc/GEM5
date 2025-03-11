@@ -276,6 +276,8 @@ class Scheduler : public SimObject
     void issueAndSelect();
     bool full(const DynInstPtr& inst);
     bool ready(const DynInstPtr& inst);
+    bool full(OpClass op);
+    bool ready(OpClass op);
     bool Allready();
     DynInstPtr getInstByDstReg(RegIndex flatIdx);
 

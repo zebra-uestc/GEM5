@@ -129,6 +129,13 @@ class DynInst : public ExecContext, public RefCounted
     /** Completes the access.  Only valid for memory operations. */
     Fault completeAcc(PacketPtr pkt);
 
+    // create store data uop
+    void buildStoreAddrUop();
+
+    // create store data uop
+    // call before buildStoreAddrUop
+    DynInstPtr createStoreDataUop();
+
     /** The sequence number of the instruction. */
     InstSeqNum seqNum = 0;
 
@@ -605,6 +612,8 @@ class DynInst : public ExecContext, public RefCounted
     //
     //  Instruction types.  Forward checks to StaticInst object.
     //
+    bool isSplitStoreAddr()   const { return staticInst->isSplitStoreAddr(); }
+    bool isSplitStoreData() const { return opClass() == StoreDataOp; }
     void setEmptyMove(bool f) { isEmptyMove = f; }
     bool isNop()          const { return staticInst->isNop() || isEmptyMove; }
     bool isMemRef()       const { return staticInst->isMemRef(); }

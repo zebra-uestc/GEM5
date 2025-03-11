@@ -114,14 +114,14 @@ decode QUADRANT default Unknown::unknown() {
                     Mem_ub = Rp2_ub;
                 }}, ea_code={{
                     EA = (Rp1 + offset);
-                }});
+                }}, inst_flags=[IsSplitStoreAddr, IsOper8]);
                 0x3: c_sh({{
                     offset = (CIMM2<0:0> << 1);
                 }}, {{
                     Mem_uh = Rp2_uh;
                 }}, ea_code={{
                     EA = (Rp1 + offset);
-                }});
+                }}, inst_flags=[IsSplitStoreAddr, IsOper16]);
             }
         }
         format CompressedStore {
@@ -136,7 +136,7 @@ decode QUADRANT default Unknown::unknown() {
                 Mem = Fp2_bits;
             }}, {{
                 EA = Rp1 + offset;
-            }});
+            }}, inst_flags=[IsSplitStoreAddr, IsOper64]);
             0x6: c_sw({{
                 offset = CIMM2<1:1> << 2 |
                          CIMM3 << 3 |
@@ -145,14 +145,14 @@ decode QUADRANT default Unknown::unknown() {
                 Mem_uw = Rp2_uw;
             }}, ea_code={{
                 EA = Rp1 + offset;
-            }});
+            }}, inst_flags=[IsSplitStoreAddr, IsOper32]);
             0x7: c_sd({{
                 offset = CIMM3 << 3 | CIMM2 << 6;
             }}, {{
                     Mem_ud = Rp2_ud;
             }}, {{
                 EA = Rp1 + offset;
-            }});
+            }}, inst_flags=[IsSplitStoreAddr, IsOper64]);
         }
     }
     0x1: decode COPCODE {
@@ -430,7 +430,7 @@ decode QUADRANT default Unknown::unknown() {
                 Mem_ud = Fc2_bits;
             }}, {{
                 EA = sp + offset;
-            }});
+            }}, inst_flags=[IsSplitStoreAddr, IsOper64]);
             0x6: c_swsp({{
                 offset = CIMM6<5:2> << 2 |
                          CIMM6<1:0> << 6;
@@ -438,7 +438,7 @@ decode QUADRANT default Unknown::unknown() {
                 Mem_uw = Rc2_uw;
             }}, {{
                 EA = sp + offset;
-            }});
+            }}, inst_flags=[IsSplitStoreAddr, IsOper32]);
             0x7: c_sdsp({{
                 offset = CIMM6<5:3> << 3 |
                          CIMM6<2:0> << 6;
@@ -446,7 +446,7 @@ decode QUADRANT default Unknown::unknown() {
                 Mem = Rc2;
             }}, {{
                 EA = sp + offset;
-            }});
+            }}, inst_flags=[IsSplitStoreAddr, IsOper64]);
         }
     }
     0x3: decode OPCODE {
@@ -873,16 +873,16 @@ decode QUADRANT default Unknown::unknown() {
             format Store {
                 0x0: sb({{
                     Mem_ub = Rs2_ub;
-                }});
+                }}, inst_flags=[IsSplitStoreAddr, IsOper8]);
                 0x1: sh({{
                     Mem_uh = Rs2_uh;
-                }});
+                }}, inst_flags=[IsSplitStoreAddr, IsOper16]);
                 0x2: sw({{
                     Mem_uw = Rs2_uw;
-                }});
+                }}, inst_flags=[IsSplitStoreAddr, IsOper32]);
                 0x3: sd({{
                     Mem_ud = Rs2_ud;
-                }});
+                }}, inst_flags=[IsSplitStoreAddr, IsOper64]);
             }
         }
 
@@ -895,7 +895,7 @@ decode QUADRANT default Unknown::unknown() {
                                 "FPU is off", machInst);
 
                     Mem_uh = (uint16_t)Fs2_bits;
-                }}, inst_flags=FloatMemWriteOp);
+                }}, inst_flags=[IsSplitStoreAddr, IsOper16, FloatMemWriteOp]);
                 0x2: fsw({{
                     STATUS status = xc->readMiscReg(MISCREG_STATUS);
                     if (status.fs == FPUStatus::OFF)
@@ -903,7 +903,7 @@ decode QUADRANT default Unknown::unknown() {
                                 "FPU is off", machInst);
 
                     Mem_uw = (uint32_t)Fs2_bits;
-                }}, inst_flags=FloatMemWriteOp);
+                }}, inst_flags=[IsSplitStoreAddr, IsOper32, FloatMemWriteOp]);
                 0x3: fsd({{
                     STATUS status = xc->readMiscReg(MISCREG_STATUS);
                     if (status.fs == FPUStatus::OFF)
@@ -911,7 +911,7 @@ decode QUADRANT default Unknown::unknown() {
                                 "FPU is off", machInst);
 
                     Mem_ud = Fs2_bits;
-                }}, inst_flags=FloatMemWriteOp);
+                }}, inst_flags=[IsSplitStoreAddr, IsOper64, FloatMemWriteOp]);
             }
 
             0x0: decode MOP {

@@ -106,6 +106,7 @@ static const OpClass MemWriteOp = enums::MemWrite;
 static const OpClass MemAtomicOp = enums::MemAtomic;
 static const OpClass FloatMemReadOp = enums::FloatMemRead;
 static const OpClass FloatMemWriteOp = enums::FloatMemWrite;
+static const OpClass StoreDataOp = enums::StoreData;
 static const OpClass IprAccessOp = enums::IprAccess;
 static const OpClass InstPrefetchOp = enums::InstPrefetch;
 
