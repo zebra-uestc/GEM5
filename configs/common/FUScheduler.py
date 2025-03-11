@@ -113,25 +113,25 @@ class KunminghuScheduler(Scheduler):
             IssuePort(fu=[IntALU()], rp=[IntRD(6, 0), IntRD(7, 0)]),
             IssuePort(fu=[IntDiv()], rp=[IntRD(0, 1), IntRD(1, 1)])
         ]),
-        IssueQue(name='load0', inports=1, size=16, oports=[
+        IssueQue(name='load0', inports=2, size=16, oports=[
             IssuePort(fu=[ReadPort()], rp=[IntRD(8, 0)])
         ]),
-        IssueQue(name='load1', inports=1, size=16, oports=[
+        IssueQue(name='load1', inports=2, size=16, oports=[
             IssuePort(fu=[ReadPort()], rp=[IntRD(9, 0)])
         ]),
-        IssueQue(name='load2', inports=1, size=16, oports=[
+        IssueQue(name='load2', inports=2, size=16, oports=[
             IssuePort(fu=[ReadPort()], rp=[IntRD(10, 0)])
         ]),
-        IssueQue(name='store0', inports=1, size=16, oports=[
+        IssueQue(name='store0', inports=2, size=16, oports=[
             IssuePort(fu=[WritePort()], rp=[IntRD(7, 2)])
         ]),
-        IssueQue(name='store1', inports=1, size=16, oports=[
+        IssueQue(name='store1', inports=2, size=16, oports=[
             IssuePort(fu=[WritePort()], rp=[IntRD(6, 2)])
         ]),
-        IssueQue(name='std0', inports=1, size=16, oports=[
+        IssueQue(name='std0', inports=2, size=16, oports=[
             IssuePort(fu=[StoreDataPort()], rp=[IntRD(5,2), FpRD(9,0)])
         ]),
-        IssueQue(name='std1', inports=1, size=16, oports=[
+        IssueQue(name='std1', inports=2, size=16, oports=[
             IssuePort(fu=[StoreDataPort()], rp=[IntRD(3,2), FpRD(10,0)])
         ]),
         IssueQue(name='fpIQ0', inports=2, size=18, oports=[
