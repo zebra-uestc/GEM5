@@ -824,6 +824,10 @@ Scheduler::issueAndSelect()
 bool
 Scheduler::ready(const DynInstPtr& inst)
 {
+    if (inst->staticInst->isSplitStoreAddr() && !ready(StoreDataOp)) {
+        return false;
+    }
+
     auto& iqs = dispTable[inst->opClass()];
     assert(!iqs.empty());
 
@@ -850,6 +854,10 @@ Scheduler::Allready()
 bool
 Scheduler::full(const DynInstPtr& inst)
 {
+    if (inst->staticInst->isSplitStoreAddr() && full(StoreDataOp)) {
+        return true;
+    }
+
     auto& iqs = dispTable[inst->opClass()];
 
     for (auto iq : iqs) {
@@ -859,6 +867,33 @@ Scheduler::full(const DynInstPtr& inst)
     }
 
     DPRINTF(Schedule, "IQ full, opclass: %s\n", enums::OpClassStrings[inst->opClass()]);
+    return true;
+}
+
+bool
+Scheduler::ready(OpClass op)
+{
+    auto& iqs = dispTable[op];
+    assert(!iqs.empty());
+    for (auto iq : iqs) {
+        if (iq->ready()) {
+            return true;
+        }
+    }
+    DPRINTF(Schedule, "IQ not ready, opclass: %s\n", enums::OpClassStrings[op]);
+    return false;
+}
+
+bool
+Scheduler::full(OpClass op)
+{
+    auto& iqs = dispTable[op];
+    for (auto iq : iqs) {
+        if (!iq->full()) {
+            return false;
+        }
+    }
+    DPRINTF(Schedule, "IQ full, opclass: %s\n", enums::OpClassStrings[op]);
     return true;
 }
 
@@ -894,6 +929,14 @@ Scheduler::addProducer(const DynInstPtr& inst)
 void
 Scheduler::insert(const DynInstPtr& inst)
 {
+    if (inst->isSplitStoreAddr()) {
+        auto stduop = inst->createStoreDataUop();
+        this->insert(stduop);
+
+        // transform self to storeAddruop
+        inst->buildStoreAddrUop();
+    }
+
     auto& iqs = dispTable[inst->opClass()];
     bool inserted = false;
 

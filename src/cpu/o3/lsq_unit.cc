@@ -248,6 +248,18 @@ StoreBuffer::release(StoreBufferEntry *entry)
     }
 }
 
+void
+LSQUnit::SQEntry::setAddrAndDataReady(bool addrR, bool dataR)
+{
+    _addrReady |= addrR;
+    _dataReady |= dataR;
+    if (_addrReady && _dataReady) {
+        instruction()->setExecuted();
+    } else {
+        assert(!instruction()->isExecuted());
+    }
+}
+
 LSQUnit::WritebackEvent::WritebackEvent(const DynInstPtr &_inst,
         PacketPtr _pkt, LSQUnit *lsq_ptr)
     : Event(Default_Pri, AutoDelete),
@@ -609,6 +621,9 @@ LSQUnit::LSQUnitStats::LSQUnitStats(statistics::Group *parent)
                 "first time a load is issued and its completion"),
       ADD_STAT(loadTranslationLat, "Distribution of cycle latency between the "
                 "first time a load is issued and its translation completion"),
+      ADD_STAT(forwardSTDNotReady, "Number of load forward but store data not ready"),
+      ADD_STAT(STAReadyFirst, "Number of store addr ready first"),
+      ADD_STAT(STDReadyFirst, "Number of store data ready first"),
       ADD_STAT(nonUnitStrideCross16Byte, "Number of vector non unitStride cross 16-byte boundary"),
       ADD_STAT(unitStrideCross16Byte, "Number of vector unitStride cross 16-byte boundary"),
       ADD_STAT(unitStrideAligned, "Number of vector unitStride 16-byte aligned")
@@ -1519,8 +1534,15 @@ LSQUnit::executeStorePipeSx()
                         // Send this instruction to commit, also make sure iew
                         // stage realizes there is activity.
                         if (!flag[LdStFlags::Replayed]) {
-                            inst->setExecuted();
-                            iewStage->instToCommit(inst);
+                            inst->sqIt->setAddrAndDataReady(true, !inst->staticInst->isSplitStoreAddr());
+
+                            if (inst->sqIt->splitStoreFinish()) {
+                                stats.STDReadyFirst++;
+                                iewStage->instToCommit(inst);
+                            } else {
+                                stats.STAReadyFirst++;
+                            }
+
                             iewStage->activityThisCycle();
                         }
                     }
@@ -1571,6 +1593,7 @@ LSQUnit::executeAmo(const DynInstPtr &amo_inst)
 {
     // Make sure that a store exists.
     assert(storeQueue.size() != 0);
+    assert(!amo_inst->staticInst->isSplitStoreAddr());
 
     ssize_t amo_idx = amo_inst->sqIdx;
 
@@ -1681,6 +1704,7 @@ LSQUnit::commitStores(InstSeqNum &youngest_inst)
             if (x.instruction()->seqNum > youngest_inst) {
                 break;
             }
+            assert(x.instruction()->isSplitStoreAddr() ? x.splitStoreFinish() : true);
             DPRINTF(LSQUnit, "Marking store as able to write back, PC "
                     "%s [sn:%lli]\n",
                     x.instruction()->pcState(),
@@ -1882,6 +1906,7 @@ LSQUnit::offloadToStoreBuffer()
             }
             offloaded++;
         } else {
+            assert(inst->isSplitStoreAddr() ? storeWBIt->splitStoreFinish() : true);
             Addr vaddr = request->getVaddr();
             Addr paddr = request->mainReq()->getPaddr();
             DPRINTF(LSQUnit, "Store [sn:%lli] insert into sbuffer\n", inst->seqNum);
@@ -2209,8 +2234,8 @@ LSQUnit::storePostSend()
 void
 LSQUnit::writeback(const DynInstPtr &inst, PacketPtr pkt)
 {
+    assert(!inst->isSplitStoreAddr());
     iewStage->wakeCPU();
-
     // Squashed instructions do not need to complete their access.
     if (inst->isSquashed()) {
         assert (!inst->isStore() || inst->isStoreConditional());
@@ -2833,10 +2858,17 @@ LSQUnit::read(LSQRequest *request, ssize_t load_idx)
                  store_has_lower_limit && store_has_upper_limit &&
                  !request->mainReq()->isLLSC()) &&
                 (!((req_s > req_e) || (st_s > st_e)))) {
+
                 const auto &store_req = store_it->request()->mainReq();
-                coverage = store_req->isMasked()
-                               ? AddrRangeCoverage::PartialAddrRangeCoverage
-                               : AddrRangeCoverage::FullAddrRangeCoverage;
+                if (store_it->instruction()->isSplitStoreAddr() && !store_it->splitStoreFinish()) {
+                    stats.forwardSTDNotReady++;
+                    coverage = AddrRangeCoverage::PartialAddrRangeCoverage;
+                } else {
+                    coverage = store_req->isMasked()
+                                ? AddrRangeCoverage::PartialAddrRangeCoverage
+                                : AddrRangeCoverage::FullAddrRangeCoverage;
+                }
+
             } else if ((!((req_s > req_e) || (st_s > st_e))) &&
                        (
                            // This is the partial store-load forwarding case
@@ -3025,26 +3057,28 @@ LSQUnit::read(LSQRequest *request, ssize_t load_idx)
 Fault
 LSQUnit::write(LSQRequest *request, uint8_t *data, ssize_t store_idx)
 {
-    assert(storeQueue[store_idx].valid());
+    auto &entry = storeQueue[store_idx];
+    assert(entry.valid());
 
     DPRINTF(LSQUnit, "Doing write to store idx %i, addr %#x | storeHead:%i, size: %d"
             "[sn:%llu]\n",
             store_idx - 1, request->req()->getPaddr(), storeQueue.head() - 1, request->_size,
-            storeQueue[store_idx].instruction()->seqNum);
+            entry.instruction()->seqNum);
 
-    storeQueue[store_idx].setRequest(request);
+            entry.setRequest(request);
     unsigned size = request->_size;
-    storeQueue[store_idx].size() = size;
+    entry.size() = size;
     bool store_no_data =
         request->mainReq()->getFlags() & Request::STORE_NO_DATA;
-    storeQueue[store_idx].isAllZeros() = store_no_data;
+        entry.isAllZeros() = store_no_data;
     assert(size <= SQEntry::DataSize || store_no_data);
 
     // copy data into the storeQueue only if the store request has valid data
-    if (!(request->req()->getFlags() & Request::CACHE_BLOCK_ZERO) &&
-        !request->req()->isCacheMaintenance() &&
-        !request->req()->isAtomic())
-        memcpy(storeQueue[store_idx].data(), data, size);
+    if (!(request->req()->getFlags() & Request::CACHE_BLOCK_ZERO) && !request->req()->isCacheMaintenance() &&
+        !request->req()->isAtomic() && !entry.instruction()->isSplitStoreAddr()) {
+        memcpy(entry.data(), data, size);
+    }
+
 
     // This function only writes the data to the store queue, so no fault
     // can happen here.

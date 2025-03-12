@@ -54,7 +54,7 @@ class OpClass(Enum):
             'SimdSha256Hash', 'SimdSha256Hash2', 'SimdShaSigma2',
             'SimdShaSigma3',
             'SimdPredAlu',
-            'MemRead', 'MemWrite', 'FloatMemRead', 'FloatMemWrite',
+            'MemRead', 'MemWrite', 'FloatMemRead', 'FloatMemWrite', 'StoreData',
             'MemAtomic',
             'IprAccess', 'InstPrefetch',
 

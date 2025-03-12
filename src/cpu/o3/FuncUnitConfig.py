@@ -158,6 +158,9 @@ class WritePort(FUDesc):
                OpDesc(opClass='VectorIndexedStore'),
                OpDesc(opClass='VectorWholeRegisterStore')]
 
+class StoreDataPort(FUDesc):
+    opList = [ OpDesc(opClass='StoreData', opLat=1)]
+
 class RdWrPort(FUDesc):
     opList = [ OpDesc(opClass='MemRead', opLat=2),
                OpDesc(opClass='MemWrite', opLat=2),

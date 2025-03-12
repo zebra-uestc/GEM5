@@ -1526,7 +1526,11 @@ IEW::executeInsts()
 
             inst->setExecuted();
 
-            instToCommit(inst);
+            if (!inst->isSplitStoreData()) {
+                instToCommit(inst);
+            } else if (inst->sqIt->splitStoreFinish()) {
+                instToCommit(inst->sqIt->instruction());
+            }
         }
 
         updateExeInstStats(inst);
@@ -1543,7 +1547,7 @@ IEW::executeInsts()
         // This probably needs to prioritize the redirects if a different
         // scheduler is used.  Currently the scheduler schedules the oldest
         // instruction first, so the branch resolution order will be correct.
-        if (!(inst->isLoad() || inst->isStore())) {
+        if (!(inst->isLoad() || inst->isStore() || inst->isSplitStoreData())) {
             // because Load/Store become pipeline execution ,Load/Store will
             // call this in `lsq_unit.cc` after execution
             SquashCheckAfterExe(inst);

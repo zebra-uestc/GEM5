@@ -34,6 +34,7 @@
 
 #include "arch/riscv/insts/static_inst.hh"
 #include "arch/riscv/utility.hh"
+#include "cpu/o3/dyn_inst.hh"
 #include "cpu/static_inst.hh"
 
 namespace gem5
@@ -58,6 +59,19 @@ Store::generateDisassembly(Addr pc, const loader::SymbolTable *symtab) const
     ss << mnemonic << ' ' << registerName(srcRegIdx(1)) << ", " <<
         offset << '(' << registerName(srcRegIdx(0)) << ')';
     return ss.str();
+}
+
+Fault
+StoreData::execute(ExecContext *xc, Trace::InstRecord *) const
+{
+    auto inst = dynamic_cast<o3::DynInst *>(xc);
+    auto data = inst->getRegOperand(inst->staticInst.get(), 0);
+    if (inst->sqIt->instruction()->memData)
+        memcpy(inst->sqIt->instruction()->memData, &data, memsize);
+    memcpy(inst->sqIt->data(), &data, memsize);
+    inst->sqIt->setAddrAndDataReady(false, true);
+
+    return NoFault;
 }
 
 } // namespace RiscvISA
