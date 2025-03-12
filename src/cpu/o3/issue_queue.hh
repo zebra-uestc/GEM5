@@ -291,6 +291,7 @@ class Scheduler : public SimObject
     bool checkRfPortBusy(int typePortId, int pri);
     void useRegfilePort(const DynInstPtr& inst, const PhysRegIdPtr& regid, int typePortId, int pri);
 
+    void specWakeUpFromLoadPipe(const DynInstPtr& inst);
     void loadCancel(const DynInstPtr& inst);
 
     void writebackWakeup(const DynInstPtr& inst);

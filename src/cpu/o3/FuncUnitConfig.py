@@ -134,18 +134,18 @@ class PredALU(FUDesc):
     count = 1
 
 class ReadPort(FUDesc):
-    opList = [ OpDesc(opClass='MemRead', opLat=2), # actually execute cycle = 2+2 (2 is in rubycache)
-               OpDesc(opClass='FloatMemRead', opLat=2),
-               OpDesc(opClass='VectorUnitStrideLoad', opLat=3),
-               OpDesc(opClass='VectorSegUnitStrideLoad', opLat=3),
-               OpDesc(opClass='VectorUnitStrideMaskLoad', opLat=3),
-               OpDesc(opClass='VectorSegUnitStrideMaskLoad', opLat=3),
-               OpDesc(opClass='VectorStridedLoad', opLat=3),
-               OpDesc(opClass='VectorSegStridedLoad', opLat=3),
-               OpDesc(opClass='VectorIndexedLoad', opLat=3),
-               OpDesc(opClass='VectorSegIndexedLoad', opLat=3),
-               OpDesc(opClass='VectorUnitStrideFaultOnlyFirstLoad', opLat=3),
-               OpDesc(opClass='VectorWholeRegisterLoad', opLat=3)]
+    opList = [ OpDesc(opClass='MemRead', opLat=4), # actually execute cycle = loadpipe's stage
+               OpDesc(opClass='FloatMemRead', opLat=4),
+               OpDesc(opClass='VectorUnitStrideLoad', opLat=4),
+               OpDesc(opClass='VectorSegUnitStrideLoad', opLat=4),
+               OpDesc(opClass='VectorUnitStrideMaskLoad', opLat=4),
+               OpDesc(opClass='VectorSegUnitStrideMaskLoad', opLat=4),
+               OpDesc(opClass='VectorStridedLoad', opLat=4),
+               OpDesc(opClass='VectorSegStridedLoad', opLat=4),
+               OpDesc(opClass='VectorIndexedLoad', opLat=4),
+               OpDesc(opClass='VectorSegIndexedLoad', opLat=4),
+               OpDesc(opClass='VectorUnitStrideFaultOnlyFirstLoad', opLat=4),
+               OpDesc(opClass='VectorWholeRegisterLoad', opLat=4)]
 
 class WritePort(FUDesc):
     opList = [ OpDesc(opClass='MemWrite', opLat=2),

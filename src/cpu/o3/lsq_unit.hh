@@ -808,7 +808,7 @@ class LSQUnit
         /** Number of times the LSQ is blocked due to the cache. */
         statistics::Scalar blockedByCache;
 
-        statistics::Scalar sbufferInsertBlock;
+        statistics::Scalar sbufferFull;
 
         statistics::Scalar sbufferCreateVice;
 

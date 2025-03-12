@@ -215,9 +215,9 @@ IssueQue::checkScoreboard(const DynInstPtr& inst)
             if (!dst_inst || !dst_inst->isLoad()) {
                 panic("dst[sn:%llu] is not load", dst_inst->seqNum);
             }
-            scheduler->loadCancel(dst_inst);
             DPRINTF(Schedule, "[sn:%llu] %s can't get data from bypassNetwork, dst inst: %s\n", inst->seqNum,
-                    inst->srcRegIdx(i), dst_inst->genDisassembly());
+                inst->srcRegIdx(i), dst_inst->genDisassembly());
+            scheduler->loadCancel(dst_inst);
             return false;
         }
     }
@@ -776,6 +776,7 @@ Scheduler::addToFU(const DynInstPtr& inst)
 #if TRACING_ON
     inst->issueTick = curTick() - inst->fetchTick;
 #endif
+    inst->clearCancel();
     DPRINTF(Schedule, "%s [sn:%llu] add to FUs\n", enums::OpClassStrings[inst->opClass()], inst->seqNum);
     instsToFu.push_back(inst);
 }
@@ -969,7 +970,7 @@ Scheduler::insertNonSpec(const DynInstPtr& inst)
 void
 Scheduler::specWakeUpDependents(const DynInstPtr& inst, IssueQue* from_issue_queue)
 {
-    if (!opPipelined[inst->opClass()] || inst->numDestRegs() == 0 || (inst->isVector() && inst->isLoad())) {
+    if (!opPipelined[inst->opClass()] || inst->numDestRegs() == 0 || inst->isLoad()) {
         return;
     }
 
@@ -1002,6 +1003,27 @@ Scheduler::specWakeUpDependents(const DynInstPtr& inst, IssueQue* from_issue_que
             // track these pending events
             specWakeEvents[inst->seqNum].insert(wakeEvent);
             cpu->schedule(wakeEvent, cpu->clockEdge(Cycles(wakeDelay)) - 1);
+        }
+    }
+}
+
+void
+Scheduler::specWakeUpFromLoadPipe(const DynInstPtr& inst)
+{
+    assert(inst->isLoad());
+    auto from_issue_queue = inst->issueQue;
+    for (auto to : wakeMatrix[from_issue_queue->getId()]) {
+
+        DPRINTF(Schedule, "[sn:%llu] %s create wakeupEvent to %s at loadpipe, no delay\n", inst->seqNum,
+                from_issue_queue->getName(), to->getName());
+        to->wakeUpDependents(inst, true);
+
+        for (int i = 0; i < inst->numDestRegs(); i++) {
+            PhysRegIdPtr dst = inst->renamedDestIdx(i);
+            if (dst->isFixedMapping()) [[unlikely]] {
+                continue;
+            }
+            earlyScoreboard[dst->flatIndex()] = true;
         }
     }
 }
@@ -1162,7 +1184,6 @@ uint32_t
 Scheduler::getCorrectedOpLat(const DynInstPtr& inst)
 {
     uint32_t oplat = getOpLatency(inst);
-    oplat += inst->isLoad() ? 2 : 0;
     return oplat;
 }
 

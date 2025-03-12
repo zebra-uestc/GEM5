@@ -609,7 +609,7 @@ LSQUnit::LSQUnitStats::LSQUnitStats(statistics::Group *parent)
       ADD_STAT(blockedByCache, statistics::units::Count::get(),
                "Number of times an access to memory failed due to the cache "
                "being blocked"),
-      ADD_STAT(sbufferInsertBlock, statistics::units::Count::get(), "blocked cycle"),
+      ADD_STAT(sbufferFull, statistics::units::Count::get(), "blocked cycle"),
       ADD_STAT(sbufferCreateVice, statistics::units::Count::get(), "create vice"),
       ADD_STAT(sbufferEvictDuetoFlush, statistics::units::Count::get(), ""),
       ADD_STAT(sbufferEvictDuetoFull, statistics::units::Count::get(), ""),
@@ -1347,6 +1347,7 @@ LSQUnit::executeLoadPipeSx()
                         fault = loadPipeS0(inst, flag);
                         break;
                     case 1:
+                        iewStage->getScheduler()->specWakeUpFromLoadPipe(inst);
                         // Loads will mark themselves as executed, and their writeback
                         // event adds the instruction to the queue to commit
                         fault = loadPipeS1(inst, flag);
@@ -1943,7 +1944,7 @@ bool LSQUnit::insertStoreBuffer(Addr vaddr, Addr paddr, uint8_t* datas, uint64_t
                 // create vice for sending entry
                 if (storeBuffer.full()) {
                     DPRINTF(StoreBuffer, "Insert %#x failed due to sbuffer full\n", paddr);
-                    stats.sbufferInsertBlock++;
+                    stats.sbufferFull++;
                     return false;
                 }
                 stats.sbufferCreateVice++;
@@ -1962,7 +1963,7 @@ bool LSQUnit::insertStoreBuffer(Addr vaddr, Addr paddr, uint8_t* datas, uint64_t
     } else {
         // create new entry
         if (storeBuffer.full()) {
-            stats.sbufferInsertBlock++;
+            stats.sbufferFull++;
             DPRINTF(StoreBuffer, "Insert %#x failed due to sbuffer full\n", paddr);
             return false;
         }
@@ -2462,7 +2463,7 @@ LSQUnit::trySendPacket(bool isLoad, PacketPtr data_pkt, bool &bank_conflict, boo
                 if (entry->recordForward(pkt->req, request)) {
                     assert(request->isSplit()); // here must be split request
                     stats.sbufferFullForward++;
-                } else {
+                } else if (!request->forwardPackets.empty()) {
                     stats.sbufferPartiForward++;
                 }
             }
