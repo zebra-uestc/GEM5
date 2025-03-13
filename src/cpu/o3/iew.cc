@@ -1528,8 +1528,13 @@ IEW::executeInsts()
 
             if (!inst->isSplitStoreData()) {
                 instToCommit(inst);
-            } else if (inst->sqIt->splitStoreFinish()) {
-                instToCommit(inst->sqIt->instruction());
+            } else {
+                // STD is ready, wake up corresponding load if any
+                instQueue.resolveSTLFFailInst(inst->seqNum);
+                if (inst->sqIt->splitStoreFinish() && !inst->sqIt->writebacked()) {
+                    inst->sqIt->writebacked() = true;
+                    instToCommit(inst->sqIt->instruction());
+                }
             }
         }
 
@@ -1832,6 +1837,12 @@ void
 IEW::loadCancel(const DynInstPtr &inst)
 {
     scheduler->loadCancel(inst);
+}
+
+void
+IEW::stlfFailLdReplay(const DynInstPtr &inst, const InstSeqNum &store_seq_num)
+{
+    instQueue.stlfFailLdReplay(inst, store_seq_num);
 }
 
 uint32_t

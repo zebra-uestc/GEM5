@@ -132,6 +132,7 @@ class IssueQue : public SimObject
         statistics::Scalar canceledInst;
         statistics::Scalar loadmiss;
         statistics::Scalar arbFailed;
+        statistics::Scalar replayQBlock;
         statistics::Vector insertDist;
         statistics::Vector issueDist;
         statistics::Vector portissued;
@@ -291,6 +292,7 @@ class Scheduler : public SimObject
     bool checkRfPortBusy(int typePortId, int pri);
     void useRegfilePort(const DynInstPtr& inst, const PhysRegIdPtr& regid, int typePortId, int pri);
 
+    void specWakeUpFromLoadPipe(const DynInstPtr& inst);
     void loadCancel(const DynInstPtr& inst);
 
     void writebackWakeup(const DynInstPtr& inst);

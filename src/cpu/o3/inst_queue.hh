@@ -205,6 +205,14 @@ class InstructionQueue
      */
     DynInstPtr getCacheMissInstToExecute();
 
+    /** Gets a load instruction that was referred due to data unready store
+     *  if it is now ready to execute.  NULL if none available.
+     */
+    DynInstPtr getSTLFFailInstToExecute();
+
+    /** Notify instruction queue that a previous block has been resolved */
+    void resolveSTLFFailInst(const InstSeqNum &store_seq_num);
+
     /** Gets a memory instruction that was blocked on the cache. NULL if none
      *  available.
      */
@@ -252,6 +260,11 @@ class InstructionQueue
      * Defers a load instruction when Dcache miss.
      */
     void cacheMissLdReplay(const DynInstPtr &deferred_inst);
+
+    /**
+     * Defers a load instruction when it can not forward from data unready store.
+     */
+    void stlfFailLdReplay(const DynInstPtr &deferred_inst, const InstSeqNum &store_seq_num);
 
     /**  Defers a memory instruction when it is cache blocked. */
     void blockMemInst(const DynInstPtr &blocked_inst);
@@ -322,6 +335,17 @@ class InstructionQueue
       size_t operator()(const DynInstPtr& ptr) const;
     };
     std::unordered_set<DynInstPtr, CacheMissLdInstsHash> cacheMissLdInsts;
+
+    struct STLFFailLdInst
+    {
+      DynInstPtr inst; // load inst
+      InstSeqNum storeSeqNum; // the store waiting for
+      bool resolved; // store data ready or not
+
+      STLFFailLdInst(DynInstPtr inst, InstSeqNum storeSeqNum, bool resolved);
+    };
+    /** List of load instructions that can not forward from data unready store. */
+    std::list<STLFFailLdInst> stlfFailLdInsts;
 
     /** List of instructions that have been cache blocked. */
     std::list<DynInstPtr> blockedMemInsts;
