@@ -289,6 +289,8 @@ class IEW
     // if load tlb miss or cache miss
     void loadCancel(const DynInstPtr &inst);
 
+    void stlfFailLdReplay(const DynInstPtr &inst, const InstSeqNum &store_seq_num);
+
     uint32_t getIQInsts();
   private:
     /** Sends commit proper information for a squash due to a branch

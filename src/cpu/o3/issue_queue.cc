@@ -90,6 +90,7 @@ IssueQue::IssueQueStats::IssueQueStats(statistics::Group* parent, IssueQue* que,
       ADD_STAT(canceledInst, statistics::units::Count::get(), "count of canceled insts"),
       ADD_STAT(loadmiss, statistics::units::Count::get(), "count of load miss"),
       ADD_STAT(arbFailed, statistics::units::Count::get(), "count of arbitration failed"),
+      ADD_STAT(replayQBlock, statistics::units::Count::get(), "count of replayQ blocked"),
       ADD_STAT(insertDist, statistics::units::Count::get(), "distruibution of insert"),
       ADD_STAT(issueDist, statistics::units::Count::get(), "distruibution of issue"),
       ADD_STAT(portissued, statistics::units::Count::get(), "count each port issues"),
@@ -104,6 +105,7 @@ IssueQue::IssueQueStats::IssueQueStats(statistics::Group* parent, IssueQue* que,
     canceledInst.flags(statistics::nozero);
     loadmiss.flags(statistics::nozero);
     arbFailed.flags(statistics::nozero);
+    replayQBlock.flags(statistics::nozero);
 }
 
 IssueQue::IssueQue(const IssueQueParams& params)
@@ -240,7 +242,7 @@ void
 IssueQue::issueToFu()
 {
     int size = toFu->size;
-    int issued = 0;
+    int iqIssued = 0, replayQIssued = 0;
     for (int i = 0; i < size; i++) {
         auto inst = toFu->pop();
         if (!inst) {
@@ -251,16 +253,20 @@ IssueQue::issueToFu()
         }
         addToFu(inst);
         cpu->perfCCT->updateInstPos(inst->seqNum, PerfRecord::AtIssueReadReg);
-        issued++;
+        iqIssued++;
     }
     for (int i = size; !replayQ.empty() && i < outports; i++) {
         auto inst = replayQ.front();
         replayQ.pop();
         scheduler->addToFU(inst);
-        issued++;
+        replayQIssued++;
     }
+    int issued = iqIssued + replayQIssued;
     if (issued > 0) {
         iqstats->issueDist[issued]++;
+    }
+    if (replayQIssued == 0 && !replayQ.empty() && iqIssued > 0) {
+        iqstats->replayQBlock++;
     }
 }
 

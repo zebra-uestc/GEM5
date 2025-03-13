@@ -1018,8 +1018,6 @@ LSQUnit::loadReplayHelper(DynInstPtr inst, LSQRequest* request, bool cacheMiss, 
     } else if (fastReplay) {
         // insert to replayQ directly, replay at next cycle
         inst->issueQue->retryMem(inst);
-    } else {
-        panic("unsupported\n");
     }
     // clear request in loadQueue
     loadQueue[inst->lqIdx].setRequest(nullptr);
@@ -1453,6 +1451,17 @@ LSQUnit::storePipeS1(const DynInstPtr &inst, std::bitset<LdStFlagNum> &flag)
         return store_fault;
     }
 
+    if (!inst->isStoreConditional()) {
+        // scalar and vector stores
+        inst->sqIt->setAddrAndDataReady(true, !inst->isSplitStoreAddr());
+    }
+
+    if (inst->sqIt->splitStoreFinish()) {
+        stats.STDReadyFirst++;
+    } else {
+        stats.STAReadyFirst++;
+    }
+
     if (storeQueue[store_idx].size() == 0) {
         DPRINTF(LSQUnit, "StorePipeS1: Fault on Store PC %s, [sn:%lli], Size = 0\n",
                 inst->pcState(), inst->seqNum);
@@ -1535,15 +1544,13 @@ LSQUnit::executeStorePipeSx()
                         // Send this instruction to commit, also make sure iew
                         // stage realizes there is activity.
                         if (!flag[LdStFlags::Replayed]) {
-                            inst->sqIt->setAddrAndDataReady(true, !inst->staticInst->isSplitStoreAddr());
-
-                            if (inst->sqIt->splitStoreFinish()) {
-                                stats.STDReadyFirst++;
+                            if (fault != NoFault && inst->isStoreConditional()) {
+                                inst->setExecuted();
                                 iewStage->instToCommit(inst);
-                            } else {
-                                stats.STAReadyFirst++;
+                            } else if (inst->sqIt->splitStoreFinish() && !inst->sqIt->writebacked()) {
+                                inst->sqIt->writebacked() = true;
+                                iewStage->instToCommit(inst);
                             }
-
                             iewStage->activityThisCycle();
                         }
                     }
@@ -2863,7 +2870,10 @@ LSQUnit::read(LSQRequest *request, ssize_t load_idx)
                 const auto &store_req = store_it->request()->mainReq();
                 if (store_it->instruction()->isSplitStoreAddr() && !store_it->splitStoreFinish()) {
                     stats.forwardSTDNotReady++;
-                    coverage = AddrRangeCoverage::PartialAddrRangeCoverage;
+                    // insert load inst into replayQ and wait for store data to be ready
+                    iewStage->stlfFailLdReplay(load_inst, store_it->instruction()->seqNum);
+                    loadReplayHelper(load_inst, request, false, false, true);
+                    return NoFault;
                 } else {
                     coverage = store_req->isMasked()
                                 ? AddrRangeCoverage::PartialAddrRangeCoverage
@@ -3066,7 +3076,7 @@ LSQUnit::write(LSQRequest *request, uint8_t *data, ssize_t store_idx)
             store_idx - 1, request->req()->getPaddr(), storeQueue.head() - 1, request->_size,
             entry.instruction()->seqNum);
 
-            entry.setRequest(request);
+    entry.setRequest(request);
     unsigned size = request->_size;
     entry.size() = size;
     bool store_no_data =
