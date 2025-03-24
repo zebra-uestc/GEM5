@@ -316,6 +316,9 @@ class IEW
 
     /** Dispatches instructions to IQ and LSQ. */
     void dispatchInsts(ThreadID tid);
+
+    void dispatchInstFromRename(ThreadID tid);
+
     /** dispatchQueue is the buffer between rename and iq
      *  first, dispatch the inst from DispatchQueue to IQ
      *  second, receive new inst from rename, store it to DQ
@@ -451,6 +454,8 @@ class IEW
 
     /** Rename to IEW delay. */
     Cycles renameToIEWDelay;
+
+    bool enableDispatchStage;
 
     unsigned renameWidth;
 
