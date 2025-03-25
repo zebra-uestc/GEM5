@@ -13,6 +13,14 @@
           inherit system;
         };
 
+        python = pkgs.python310;
+        pythonPackages = python.pkgs;
+
+        # Create a scons based on python310
+        scons = pkgs.scons.override {
+          python3Packages = pythonPackages;
+        };
+
         # gem5 dependencies
         buildInputs = with pkgs; [
           boost
@@ -29,10 +37,10 @@
           m4
           ninja
           pkg-config
-          python3Full
-          python3Packages.distutils
-          python3Packages.pydot
-          python3Packages.six
+          python
+          pythonPackages.distutils
+          pythonPackages.pydot
+          pythonPackages.six
           scons
           sqlite
           swig
@@ -55,15 +63,16 @@
           ccache
           git
           valgrind
-          python3Packages.pyupgrade
-          python3Packages.pyyaml
+          pythonPackages.pyupgrade
+          pythonPackages.pyyaml
           glibcLocales
 
           # LSP
-          pyright       # Python LSP
-          ruff          # Python formatter
-          clang-tools   # C++
-          nixd          # LSP of This file
+          pyright # Python LSP
+          # ruff          # Python formatter
+          clang-tools # C++
+          nixd # LSP of This file
+          nixpkgs-fmt # Nix formatter
         ];
       in
       {
@@ -98,12 +107,23 @@
           '';
         };
 
-        devShells.default = pkgs.mkShell.override {
-          stdenv = pkgs.stdenvAdapters.useMoldLinker pkgs.clangStdenv; # Use clang and mold for faster develop build times
-        } {
-          inherit buildInputs;
-          nativeBuildInputs = devTools;
-        };
+        devShells.default = pkgs.mkShell.override
+          {
+            stdenv = pkgs.stdenvAdapters.useMoldLinker (pkgs.stdenvAdapters.overrideCC pkgs.stdenv pkgs.clang);
+          }
+          {
+            inherit buildInputs;
+            nativeBuildInputs = devTools;
+
+            # Prebuilt NEMU need libstdc++, give it libstdc++
+            shellHook = ''
+              export LD_LIBRARY_PATH=${pkgs.lib.makeLibraryPath [
+                pkgs.stdenv.cc.cc
+              ]}
+            '';
+          };
+
+        formatter = pkgs.nixpkgs-fmt;
         hardeningDisable = [ "all" ];
       }
     );
