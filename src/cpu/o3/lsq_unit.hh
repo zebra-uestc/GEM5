@@ -439,6 +439,12 @@ class LSQUnit
     /** Returns the number of free SQ entries. */
     unsigned numFreeStoreEntries();
 
+    /** Returns the number of Poped LQ entries in LAST CLOCK. */
+    unsigned getAndResetLastClockLQPopEntries();
+
+    /** Returns the number of Poped SQ entries in LAST CLOCK. */
+    unsigned getAndResetLastClockSQPopEntries();
+
     /** Returns the number of loads in the LQ. */
     int numLoads() { return loadQueue.size(); }
 
@@ -775,6 +781,9 @@ class LSQUnit
 
     /** Flag for memory model. */
     bool needsTSO;
+
+    unsigned lastClockSQPopEntries;
+    unsigned lastClockLQPopEntries;
 
   protected:
     // Will also need how many read/write ports the Dcache has.  Or keep track

@@ -1048,7 +1048,8 @@ IEW::dispatchInstFromRename(ThreadID tid)
 
     bool canDispatch = true;
 
-    if (ldstQueue.getFreeLQEntries(tid) < renameWidth || ldstQueue.getFreeSQEntries(tid) < renameWidth) {
+    if ((ldstQueue.getFreeLQEntries(tid) < (renameWidth + lastClockLQPopEntries[tid])) ||
+        (ldstQueue.getFreeSQEntries(tid) < (renameWidth + lastClockSQPopEntries[tid]))) {
         canDispatch = false;
     }
 
@@ -1878,7 +1879,8 @@ IEW::tick()
         ThreadID tid = *threads++;
 
         DPRINTF(IEW,"Issue: Processing [tid:%i]\n",tid);
-
+        lastClockLQPopEntries[tid] = ldstQueue.getAndResetLastLQPopEntries(tid);
+        lastClockSQPopEntries[tid] = ldstQueue.getAndResetLastSQPopEntries(tid);
         checkSignalsAndUpdate(tid);
         dispatch(tid);
 

@@ -429,6 +429,8 @@ class IEW
     Scheduler* getScheduler() { return scheduler; }
     /** Instruction queue. */
     InstructionQueue instQueue;
+    unsigned lastClockLQPopEntries[MaxThreads];
+    unsigned lastClockSQPopEntries[MaxThreads];
 
     /** Load / store queue. */
     LSQ ldstQueue;
