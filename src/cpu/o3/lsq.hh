@@ -1023,6 +1023,12 @@ class LSQ
 
     unsigned getLQEntries() const { return LQEntries; }
 
+    unsigned getFreeLQEntries(ThreadID tid);
+    unsigned getAndResetLastLQPopEntries(ThreadID tid);
+
+    unsigned getFreeSQEntries(ThreadID tid);
+    unsigned getAndResetLastSQPopEntries(ThreadID tid);
+
     /** Is D-cache blocked? */
     bool cacheBlocked() const;
     /** Set D-cache blocked status */

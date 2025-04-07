@@ -546,7 +546,7 @@ IEW::squash(ThreadID tid)
 
         toRename->iewInfo[tid].dispatched++;
 
-        skidBuffer[tid].pop();
+        skidBuffer[tid].pop_front();
     }
 
     emptyRenameInsts(tid);
@@ -741,13 +741,13 @@ IEW::skidInsert(ThreadID tid)
     while (!insts[tid].empty()) {
         inst = insts[tid].front();
 
-        insts[tid].pop();
+        insts[tid].pop_front();
 
         DPRINTF(IEW,"[tid:%i] Inserting [sn:%lli] PC:%s into "
                 "dispatch skidBuffer %i\n",tid, inst->seqNum,
                 inst->pcState(),tid);
 
-        skidBuffer[tid].push(inst);
+        skidBuffer[tid].push_back(inst);
     }
 
     assert(skidBuffer[tid].size() <= skidBufferMax &&
@@ -925,7 +925,7 @@ IEW::sortInsts()
         if (localSquashVer.largerThan(inst->getVersion())) {
             inst->setSquashed();
         }
-        insts[fromRename->insts[i]->threadNumber].push(inst);
+        insts[fromRename->insts[i]->threadNumber].push_back(inst);
     }
 }
 
@@ -946,7 +946,7 @@ IEW::emptyRenameInsts(ThreadID tid)
 
         toRename->iewInfo[tid].dispatched++;
 
-        insts[tid].pop();
+        insts[tid].pop_front();
     }
 }
 
@@ -1042,9 +1042,16 @@ IEW::dispatchInstFromRename(ThreadID tid)
 {
     DynInstPtr inst;
 
-    std::queue<DynInstPtr> &insts_to_dispatch =
+    std::deque<DynInstPtr> &insts_to_dispatch =
     dispatchStatus[tid] == Unblocking ?
     skidBuffer[tid] : insts[tid];
+
+    bool canDispatch = true;
+
+    if ((ldstQueue.getFreeLQEntries(tid) < (renameWidth + lastClockLQPopEntries[tid])) ||
+        (ldstQueue.getFreeSQEntries(tid) < (renameWidth + lastClockSQPopEntries[tid]))) {
+        canDispatch = false;
+    }
 
     bool emptyROB = fromCommit->commitInfo[tid].emptyROB;
 
@@ -1053,144 +1060,159 @@ IEW::dispatchInstFromRename(ThreadID tid)
     StallReason breakDispatch = StallReason::NoStall;
 
     unsigned dispatched = 0;
-    while (!insts_to_dispatch.empty()) {
-        bool add_to_iq = false;
-        auto& inst = insts_to_dispatch.front();
-        int ins = cpu->cpuStats.committedInsts.total();
-        if (cpu->hasHintDownStream() && ins % 10000 == 1) {
-            cpu->hintDownStream->notifyIns(ins);
-        }
-
-        if (inst->isSquashed()) {
-            ++iewStats.dispSquashedInsts;
-            //Tell Rename That An Instruction has been processed
-            if (inst->isLoad()) {
-                toRename->iewInfo[tid].dispatchedToLQ++;
+    int disp_seq = -1;
+    if (canDispatch) {
+        scheduler->lookahead(insts_to_dispatch);
+        while (!insts_to_dispatch.empty()) {
+            bool add_to_iq = false;
+            auto &inst = insts_to_dispatch.front();
+            disp_seq++;
+            int ins = cpu->cpuStats.committedInsts.total();
+            if (cpu->hasHintDownStream() && ins % 10000 == 1) {
+                cpu->hintDownStream->notifyIns(ins);
             }
-            if (inst->isStore() || inst->isAtomic()) {
-                toRename->iewInfo[tid].dispatchedToSQ++;
+
+            if (inst->isSquashed()) {
+                ++iewStats.dispSquashedInsts;
+                // Tell Rename That An Instruction has been processed
+                if (inst->isLoad()) {
+                    toRename->iewInfo[tid].dispatchedToLQ++;
+                }
+                if (inst->isStore() || inst->isAtomic()) {
+                    toRename->iewInfo[tid].dispatchedToSQ++;
+                }
+                toRename->iewInfo[tid].dispatched++;
+                insts_to_dispatch.pop_front();
+
+                dispatch_stalls.push(StallReason::InstSquashed);
+                continue;
             }
-            toRename->iewInfo[tid].dispatched++;
-            insts_to_dispatch.pop();
 
-            dispatch_stalls.push(StallReason::InstSquashed);
-            continue;
-        }
+            if ((inst->isSerializeBefore() && !inst->isSerializeHandled()) ? !emptyROB : false) {
+                dispatch_stalls.push(StallReason::SerializeStall);
+                breakDispatch = StallReason::SerializeStall;
+                blockReason = breakDispatch;
+                break;
+            }
 
-        if ((inst->isSerializeBefore() && !inst->isSerializeHandled()) ? !emptyROB : false) {
-            dispatch_stalls.push(StallReason::SerializeStall);
-            breakDispatch = StallReason::SerializeStall;
-            blockReason = breakDispatch;
-            break;
-        }
+            // Check LSQ if inst is LD/ST
+            if ((inst->isAtomic() && ldstQueue.sqFull(tid)) || (inst->isLoad() && ldstQueue.lqFull(tid)) ||
+                (inst->isStore() && ldstQueue.sqFull(tid))) {
+                DPRINTF(IEW, "[tid:%i] Dispatch: %s has become full.\n", tid, inst->isLoad() ? "LQ" : "SQ");
 
-        // Check LSQ if inst is LD/ST
-        if ((inst->isAtomic() && ldstQueue.sqFull(tid)) ||
-            (inst->isLoad() && ldstQueue.lqFull(tid)) ||
-            (inst->isStore() && ldstQueue.sqFull(tid))) {
-            DPRINTF(IEW, "[tid:%i] Dispatch: %s has become full.\n",tid,
-                    inst->isLoad() ? "LQ" : "SQ");
+                iewStats.stallEvents[LSQFull]++;
 
-            iewStats.stallEvents[LSQFull]++;
+                ++iewStats.lsqFullEvents;
+                dispatch_stalls.push(checkDispatchStall(tid, NumDQ, inst, disp_seq));
+                breakDispatch = dispatch_stalls.back();
+                blockReason = breakDispatch;
+                break;
+            }
 
-            ++iewStats.lsqFullEvents;
-            break;
-        }
+            if (!scheduler->ready(inst, disp_seq)) {
+                DPRINTF(IEW, "[tid:%i] Dispatch: IQ is full or bwFull.\n", tid);
+                iewStats.stallEvents[IQFull]++;
+                ++iewStats.iqFullEvents;
 
-        if (!instQueue.isReady(inst)) {
-            DPRINTF(IEW, "[tid:%i] Dispatch: IQ is full or bwFull.\n", tid);
-            iewStats.stallEvents[IQFull]++;
-            ++iewStats.iqFullEvents;
+                dispatch_stalls.push(checkDispatchStall(tid, NumDQ, inst, disp_seq));
+                breakDispatch = dispatch_stalls.back();
+                blockReason = breakDispatch;
+                break;
+            }
 
-            dispatch_stalls.push(checkDispatchStall(tid, NumDQ, inst));
-            breakDispatch = dispatch_stalls.back();
-            blockReason = breakDispatch;
-            break;
-        }
+            const int numHtmStarts = ldstQueue.numHtmStarts(tid);
+            const int numHtmStops = ldstQueue.numHtmStops(tid);
+            const int htmDepth = numHtmStarts - numHtmStops;
+            if (htmDepth > 0) {
+                inst->setHtmTransactionalState(ldstQueue.getLatestHtmUid(tid), htmDepth);
+            } else {
+                inst->clearHtmTransactionalState();
+            }
 
-        const int numHtmStarts = ldstQueue.numHtmStarts(tid);
-        const int numHtmStops = ldstQueue.numHtmStops(tid);
-        const int htmDepth = numHtmStarts - numHtmStops;
-        if (htmDepth > 0) {
-            inst->setHtmTransactionalState(ldstQueue.getLatestHtmUid(tid),
-                                            htmDepth);
-        } else {
-            inst->clearHtmTransactionalState();
-        }
+            if (!inst->isNop()) {
+                scheduler->addProducer(inst);
+            }
 
-        if (!inst->isNop()) {
-            scheduler->addProducer(inst);
-        }
-
-        if (inst->isAtomic()) {
-            DPRINTF(IEW, "[tid:%i] Dispatch: Memory instruction "
-                "encountered, adding to LSQ.\n", tid);
-            ++iewStats.dispStoreInsts;
-            ++iewStats.dispNonSpecInsts;
-            toRename->iewInfo[tid].dispatchedToSQ++;
-
-            ldstQueue.insertStore(inst);
-            inst->setCanCommit();
-            instQueue.insertNonSpec(inst);
-            add_to_iq = false;
-        } else if (inst->isLoad()) {
-            DPRINTF(IEW, "[tid:%i] Dispatch: Memory instruction "
-                "encountered, adding to LSQ.\n", tid);
-            ++iewStats.dispLoadInsts;
-            toRename->iewInfo[tid].dispatchedToLQ++;
-
-            ldstQueue.insertLoad(inst);
-            add_to_iq = true;
-        } else if (inst->isStore()) {
-            DPRINTF(IEW, "[tid:%i] Dispatch: Memory instruction "
-                "encountered, adding to LSQ.\n", tid);
-            ++iewStats.dispStoreInsts;
-
-            ldstQueue.insertStore(inst);
-            if (inst->isStoreConditional()) {
+            if (inst->isAtomic()) {
+                DPRINTF(IEW,
+                        "[tid:%i] Dispatch: Memory instruction "
+                        "encountered, adding to LSQ.\n",
+                        tid);
+                ++iewStats.dispStoreInsts;
                 ++iewStats.dispNonSpecInsts;
+                toRename->iewInfo[tid].dispatchedToSQ++;
+
+                ldstQueue.insertStore(inst);
                 inst->setCanCommit();
                 instQueue.insertNonSpec(inst);
                 add_to_iq = false;
+            } else if (inst->isLoad()) {
+                DPRINTF(IEW,
+                        "[tid:%i] Dispatch: Memory instruction "
+                        "encountered, adding to LSQ.\n",
+                        tid);
+                ++iewStats.dispLoadInsts;
+                toRename->iewInfo[tid].dispatchedToLQ++;
+
+                ldstQueue.insertLoad(inst);
+                add_to_iq = true;
+            } else if (inst->isStore()) {
+                DPRINTF(IEW,
+                        "[tid:%i] Dispatch: Memory instruction "
+                        "encountered, adding to LSQ.\n",
+                        tid);
+                ++iewStats.dispStoreInsts;
+
+                ldstQueue.insertStore(inst);
+                if (inst->isStoreConditional()) {
+                    ++iewStats.dispNonSpecInsts;
+                    inst->setCanCommit();
+                    instQueue.insertNonSpec(inst);
+                    add_to_iq = false;
+                } else {
+                    add_to_iq = true;
+                }
+                toRename->iewInfo[tid].dispatchedToSQ++;
+            } else if (inst->isReadBarrier() || inst->isWriteBarrier()) {
+                inst->setCanCommit();
+                instQueue.insertBarrier(inst);
+                add_to_iq = false;
+            } else if (inst->isNop()) {
+                DPRINTF(IEW,
+                        "[tid:%i] Dispatch: Nop instruction encountered, "
+                        "skipping.\n",
+                        tid);
+                inst->setIssued();
+                inst->setExecuted();
+                inst->setCanCommit();
+                iewStats.executedInstStats.numNop[tid]++;
+                add_to_iq = false;
             } else {
+                assert(!inst->isExecuted());
                 add_to_iq = true;
             }
-            toRename->iewInfo[tid].dispatchedToSQ++;
-        } else if (inst->isReadBarrier() || inst->isWriteBarrier()) {
-            inst->setCanCommit();
-            instQueue.insertBarrier(inst);
-            add_to_iq = false;
-        } else if (inst->isNop()) {
-            DPRINTF(IEW, "[tid:%i] Dispatch: Nop instruction encountered, "
-                "skipping.\n", tid);
-            inst->setIssued();
-            inst->setExecuted();
-            inst->setCanCommit();
-            iewStats.executedInstStats.numNop[tid]++;
-            add_to_iq = false;
-        } else {
-            assert(!inst->isExecuted());
-            add_to_iq = true;
+
+            if (add_to_iq && inst->isNonSpeculative()) {
+                DPRINTF(IEW,
+                        "[tid:%i] Dispatch: Nonspeculative instruction "
+                        "encountered, skipping.\n",
+                        tid);
+                inst->setCanCommit();
+                instQueue.insertNonSpec(inst);
+                add_to_iq = false;
+            }
+
+            if (add_to_iq) {
+                instQueue.insert(inst, disp_seq);
+            }
+            ppDispatch->notify(inst);
+
+            toRename->iewInfo[tid].dispatched++;
+            ++iewStats.dispatchedInsts;
+
+            insts_to_dispatch.pop_front();
+            dispatched++;
         }
-
-        if (add_to_iq && inst->isNonSpeculative()) {
-            DPRINTF(IEW, "[tid:%i] Dispatch: Nonspeculative instruction "
-                "encountered, skipping.\n", tid);
-            inst->setCanCommit();
-            instQueue.insertNonSpec(inst);
-            add_to_iq = false;
-        }
-
-        if (add_to_iq) {
-            instQueue.insert(inst);
-        }
-        ppDispatch->notify(inst);
-
-        toRename->iewInfo[tid].dispatched++;
-        ++iewStats.dispatchedInsts;
-
-        insts_to_dispatch.pop();
-        dispatched++;
     }
     iewStats.dispDist.sample(dispatched);
 
@@ -1237,17 +1259,7 @@ IEW::dispatchInstFromRename(ThreadID tid)
 void
 IEW::classifyInstToDispQue(ThreadID tid)
 {
-    auto dispClassify = [](const DynInstPtr& inst) -> int{
-        if (inst->isMemRef() || inst->isReadBarrier() || inst->isWriteBarrier() || inst->isNonSpeculative()) {
-            return MemDQ;
-        }
-        if (inst->isFloating() || inst->isVector()) {
-            return FVDQ;
-        }
-        return IntDQ;
-    };
-
-    std::queue<DynInstPtr> &insts_to_dispatch =
+    std::deque<DynInstPtr> &insts_to_dispatch =
         dispatchStatus[tid] == Unblocking ?
         skidBuffer[tid] : insts[tid];
 
@@ -1263,7 +1275,7 @@ IEW::classifyInstToDispQue(ThreadID tid)
         if (cpu->hasHintDownStream() && ins % 10000 == 1) {
             cpu->hintDownStream->notifyIns(ins);
         }
-        int id = dispClassify(inst);
+        int id = getInstDQType(inst);
         if (dispQue[id].size() < dqSize[id]) {
             if (inst->isSquashed()) {
                 ++iewStats.dispSquashedInsts;
@@ -1275,7 +1287,7 @@ IEW::classifyInstToDispQue(ThreadID tid)
                     toRename->iewInfo[tid].dispatchedToSQ++;
                 }
                 toRename->iewInfo[tid].dispatched++;
-                insts_to_dispatch.pop();
+                insts_to_dispatch.pop_front();
 
                 dispatch_stalls.push(StallReason::InstSquashed);
                 continue;
@@ -1325,10 +1337,10 @@ IEW::classifyInstToDispQue(ThreadID tid)
             inst->enterDQTick = curTick();
             cpu->perfCCT->updateInstPos(inst->seqNum, PerfRecord::AtDispQue);
 
-            insts_to_dispatch.pop();
+            insts_to_dispatch.pop_front();
             dispatched++;
         } else {
-            dispatch_stalls.push(checkDispatchStall(tid, id, inst));
+            dispatch_stalls.push(checkDispatchStall(tid, id, inst, -1));
             breakDispatch = dispatch_stalls.back();
             blockReason = breakDispatch;
             break;
@@ -1383,8 +1395,11 @@ IEW::dispatchInstFromDispQue(ThreadID tid)
 
     for (int i = 0; i < NumDQ; i++) {
         int dispatched = 0;
+        int disp_seq = -1;
+        scheduler->lookahead(dispQue[i]);
         while (!dispQue[i].empty() && dispatched < dispWidth[i]) {
             inst = dispQue[i].front();
+            disp_seq++;
 
             // Check for squashed instructions.
             if (inst->isSquashed()) {
@@ -1396,7 +1411,7 @@ IEW::dispatchInstFromDispQue(ThreadID tid)
             }
 
             // Check for ready conditions.(ready: !full && !bwFull )
-            if (!instQueue.isReady(inst)) {
+            if (!scheduler->ready(inst, disp_seq)) {
                 DPRINTF(IEW, "[tid:%i] Dispatch: IQ is full or bwFull.\n", tid);
 
                 iewStats.stallEvents[IQFull]++;
@@ -1496,7 +1511,7 @@ IEW::dispatchInstFromDispQue(ThreadID tid)
             // If the instruction queue is not full, then add the
             // instruction.
             if (add_to_iq) {
-                instQueue.insert(inst);
+                instQueue.insert(inst, disp_seq);
             }
             ++dis_num_inst;
 
@@ -1864,11 +1879,12 @@ IEW::tick()
         ThreadID tid = *threads++;
 
         DPRINTF(IEW,"Issue: Processing [tid:%i]\n",tid);
-
+        lastClockLQPopEntries[tid] = ldstQueue.getAndResetLastLQPopEntries(tid);
+        lastClockSQPopEntries[tid] = ldstQueue.getAndResetLastSQPopEntries(tid);
         checkSignalsAndUpdate(tid);
         dispatch(tid);
 
-        toRename->iewInfo[tid].robHeadStallReason = checkDispatchStall(tid, NumDQ, nullptr);
+        toRename->iewInfo[tid].robHeadStallReason = checkDispatchStall(tid, NumDQ, nullptr, -1);
         toRename->iewInfo[tid].lqHeadStallReason =
             ldstQueue.lqEmpty() ? StallReason::NoStall : checkLSQStall(tid, true);
         toRename->iewInfo[tid].sqHeadStallReason =
@@ -2128,44 +2144,41 @@ IEW::dqTypeToReason(DQType dq_type)
 IEW::DQType
 IEW::getInstDQType(const DynInstPtr &inst)
 {
-    if (inst->isMemRef() || inst->isAtomic() || inst->isReadBarrier() || inst->isWriteBarrier() ||
-        inst->isNonSpeculative()) {
-        return DQType::MemDQ;
-    } else if (inst->isFloating() || inst->isVector()) {
-        return DQType::FVDQ;
-    } else if (inst->isInteger() || inst->isControl() || inst->staticInst->opClass() == enums::No_OpClass) {
-        return DQType::IntDQ;
-    } else {
-        panic("Unknown inst op Class: %i type: %s\n", inst->staticInst->opClass(),
-              inst->staticInst->disassemble(inst->pcState().instAddr()));
+    if (inst->isMemRef() || inst->isReadBarrier() || inst->isWriteBarrier() || inst->isNonSpeculative()) {
+        return MemDQ;
     }
-    return DQType::IntDQ;
+    if (inst->isFloating() || inst->isVector()) {
+        return FVDQ;
+    }
+    return IntDQ;
 }
 
 StallReason
-IEW::checkDispatchStall(ThreadID tid, int dq_id, const DynInstPtr &dispatch_inst) {
+IEW::checkDispatchStall(ThreadID tid, int dq_stall, const DynInstPtr &dispatch_inst, int disp_seq) {
     DynInstPtr head_inst = rob->readHeadInst(tid);
     if (head_inst == rob->dummyInst) {
-        if (dq_id != NumDQ) {  // this call is from dispatch to classify the reason why an instr cannot be dispatched
-            return dqTypeToReason(static_cast<DQType>(dq_id));
+        if (dq_stall != NumDQ) {
+            // this call is from dispatch to classify the reason why an instr cannot be dispatched
+            return dqTypeToReason(static_cast<DQType>(dq_stall));
         } else {  // this call is to tell rename the stall status
             return StallReason::NoStall;
         }
     }
 
-    if (dq_id != NumDQ) {
+    if (dq_stall != NumDQ && disp_seq >= 0) {
         // get dq head inst
-        assert(dispQue[dq_id].size());
-        auto &dq_head = dispQue[dq_id].front();
-        if (getInstDQType(dispatch_inst) == getInstDQType(dq_head) && !instQueue.isReady(dq_head)) {
-            return dqTypeToReason(static_cast<DQType>(dq_id));
+        assert(dispQue[dq_stall].size());
+        auto &dq_head = dispQue[dq_stall].front();
+        bool ready = !scheduler->ready(dq_head, disp_seq);
+        if (getInstDQType(dispatch_inst) == getInstDQType(dq_head) && !ready) {
+            return dqTypeToReason(static_cast<DQType>(dq_stall));
         }
 
         if (dispatch_inst->isStore() && !ldstQueue.sqFull()) {
             // store cannot be dispatched while sq is not full
             return StallReason::MemDQBandwidth;
         }
-        if (dispatch_inst->isLoad() && !(ldstQueue.lqFull() || rob->isFull() || instQueue.isFull(dispatch_inst))) {
+        if (dispatch_inst->isLoad() && !(ldstQueue.lqFull() || rob->isFull() || !ready)) {
             return StallReason::MemDQBandwidth;
         }
         if (dispatch_inst->isAtCommit() && !(ldstQueue.lqFull() || ldstQueue.sqFull())) {
@@ -2173,11 +2186,11 @@ IEW::checkDispatchStall(ThreadID tid, int dq_id, const DynInstPtr &dispatch_inst
         }
 
         if ((dispatch_inst->isFloating() || dispatch_inst->isVector()) &&
-            !(rob->isFull() || instQueue.isFull(dispatch_inst))) {
+            !(rob->isFull() || !ready)) {
             return StallReason::FVDQBandwidth;
         }
 
-        if (dispatch_inst->isInteger() && !(rob->isFull() || instQueue.isFull(dispatch_inst))) {
+        if (dispatch_inst->isInteger() && !(rob->isFull() || !ready)) {
             return StallReason::IntDQBandwidth;
         }
     }

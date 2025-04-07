@@ -471,6 +471,8 @@ LSQUnit::LSQUnit(uint32_t lqEntries, uint32_t sqEntries, uint32_t sbufferEntries
       isStoreBlocked(false),
       storeBlockedfromQue(false),
       storeInFlight(false),
+      lastClockSQPopEntries(0),
+      lastClockLQPopEntries(0),
       stats(nullptr)
 {
     // reserve space, we want if sq will be full, sbuffer will start evicting
@@ -807,7 +809,21 @@ LSQUnit::numFreeStoreEntries()
                 storeQueue.capacity(), storeQueue.size());
         return storeQueue.capacity() - storeQueue.size();
 
- }
+}
+
+unsigned
+LSQUnit::getAndResetLastClockLQPopEntries(){
+    unsigned num = lastClockLQPopEntries;
+    lastClockLQPopEntries = 0;
+    return num;
+}
+
+unsigned
+LSQUnit::getAndResetLastClockSQPopEntries(){
+    unsigned num = lastClockSQPopEntries;
+    lastClockSQPopEntries = 0;
+    return num;
+}
 
 void
 LSQUnit::checkSnoop(PacketPtr pkt)
@@ -1694,6 +1710,7 @@ LSQUnit::commitLoad()
 
     loadQueue.front().clear();
     loadQueue.pop_front();
+    lastClockLQPopEntries++;
 }
 
 void
@@ -2127,6 +2144,7 @@ LSQUnit::squash(const InstSeqNum &squashed_num)
         loadQueue.back().clear();
 
         loadQueue.pop_back();
+        lastClockLQPopEntries++;
         ++stats.squashedLoads;
     }
 
@@ -2206,6 +2224,7 @@ LSQUnit::squash(const InstSeqNum &squashed_num)
         storeQueue.back().clear();
 
         storeQueue.pop_back();
+        lastClockSQPopEntries++;
         ++stats.squashedStores;
     }
 }
@@ -2382,6 +2401,7 @@ LSQUnit::completeStore(typename StoreQueue::iterator store_idx, bool from_sbuffe
         do {
             storeQueue.front().clear();
             storeQueue.pop_front();
+            lastClockSQPopEntries++;
         } while (storeQueue.front().completed() &&
                  !storeQueue.empty());
 
