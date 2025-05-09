@@ -3,7 +3,7 @@
 set -x
 
 # The root of GEM5 project
-export GEM5_HOME=/root/xiangshan/GEM5
+export GEM5_HOME=/root/GEM5
 # The path of GEM5 executable
 export GEM5=$GEM5_HOME/build/RISCV/gem5.opt
 # The name of the log file
@@ -88,7 +88,7 @@ function single_run() {
 	warmup_inst=$((20 * 10 ** 6))
 	max_inst=$((40 * 10 ** 6))
 
-	workload=/root/xiangshan/NEMU/checkpoint_example_result/spec-cpt/gcc_166/195/_195_0.012182_.gz
+	workload=/root/NEMU/ready-to-run/linux.bin
 	run $workload $warmup_inst $max_inst $work_dir >$work_dir/$log_file 2>&1
 }
 export -f single_run
@@ -126,7 +126,7 @@ function arg_wrapper() {
 }
 export -f arg_wrapper
 
-export workload_list=/home/xiongtianyu/xs/gem5/util/zebra/workload_list/${benchmark}.txt
+export workload_list=${GEM5_HOME}/util/zebra/gcpt_list/${benchmark}.txt
 function parallel_run() {
 	# We use gnu parallel to control the parallelism.
 	# If your server has 32 core and 64 SMT threads, we suggest to run with no more than 32 threads.
