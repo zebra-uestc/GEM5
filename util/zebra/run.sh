@@ -14,7 +14,7 @@ export output_dir=${GEM5_HOME}/output
 mkdir -p $output_dir
 
 # Set the benchmark name
-export benchmark="gcc_166"
+export benchmark="libquantum"
 
 check() {
 	if [ $1 -ne 0 ]; then
