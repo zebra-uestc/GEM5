@@ -47,7 +47,7 @@ def merge_cycles(benchmark):
 
 
 if __name__ == "__main__":
-    benchmark = meta.benchmarks[0]
+    benchmark = meta.benchmarks[1]
     # 设置基本信息
     base_dir = f"{meta.GEM5_HOME}/output/cycles"
     merge_cycles(benchmark)

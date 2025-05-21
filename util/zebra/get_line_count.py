@@ -38,5 +38,5 @@ if __name__ == "__main__":
     # 设置基本信息
     base_dir = f"{meta.GEM5_HOME}/output/cycles"
     out_dir = f"{meta.GEM5_HOME}/util/zebra/run_info"
-    run_id = 1
+    run_id = 3
     get_line_count(benchmark, run_id)
